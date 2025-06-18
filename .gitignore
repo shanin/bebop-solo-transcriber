@@ -37,6 +37,7 @@ venv.bak/
 .DS_Store
 
 # Jupyter Notebook
+notebooks/
 .ipynb_checkpoints
 *.ipynb_checkpoints/
 
