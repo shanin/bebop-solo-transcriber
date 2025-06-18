@@ -1,0 +1,127 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.env
+.venv
+env.bak/
+venv.bak/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# PyTorch
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+torch_saved/
+lightning_logs/
+
+# DVC
+.dvc/tmp/
+.dvc/cache/
+*.dvc/cache
+*.dvc/tmp
+.dvc/plots/
+.dvc/state
+.dvc/state-journal
+.dvc/state-wal
+
+# Data and Models
+stages/
+data/
+datasets/
+models/
+*.h5
+*.hdf5
+*.npy
+*.npz
+*.pkl
+*.pickle
+*.bin
+*.gz
+*.tar
+*.zip
+
+# Logs and outputs
+logs/
+outputs/
+runs/
+wandb/
+mlruns/
+tensorboard/
+*.log
+
+# Environment variables
+.env
+.env.*
+
+# Coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# pytest
+.pytest_cache/
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+params.yaml
