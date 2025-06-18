@@ -1,0 +1,46 @@
+import torchaudio
+from pesto import load_model
+import os
+import torch 
+import numpy as np
+import pandas as pd
+import argparse
+
+if __name__ == "__main__":
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--data_list", type=str, default='stages/1_processed_scores/index_omnibook.csv')
+  parser.add_argument("--output_folder", type=str, default='stages/2_pesto_clean/')
+  args = parser.parse_args()
+
+  os.makedirs(args.output_folder, exist_ok=True)
+
+  data_list = pd.read_csv(args.data_list)
+  device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+  print('Loading model... on device: ', device)
+  pesto_model = load_model("mir-1k_g7", step_size=10.).to(device)
+
+  
+  with torch.no_grad():
+    for _, row in data_list.iterrows():
+      idx = row['example_id']
+      if os.path.exists(os.path.join(args.output_folder, idx + ".activations.npy")):
+        continue
+
+      x, sr = torchaudio.load(row['clean_solo'])
+      x = x.mean(dim=0) 
+      x = x.to(device)
+      predictions, confidence, amplitude, activations = pesto_model(x, sr)
+      predictions = predictions.to('cpu').detach()
+      confidence = confidence.to('cpu').detach()
+      amplitude = amplitude.to('cpu').detach()
+      activations = activations.to('cpu').detach()
+
+      np.save(os.path.join(args.output_folder, idx + ".activations.npy"), activations.numpy())
+      np.save(os.path.join(args.output_folder, idx + ".confidence.npy"), confidence.numpy())
+      np.save(os.path.join(args.output_folder, idx + ".predictions.npy"), predictions.numpy())
+      np.save(os.path.join(args.output_folder, idx + ".amplitude.npy"), amplitude.numpy())
+      
+
+      del x, predictions, confidence, amplitude, activations
+      torch.cuda.empty_cache()
+      torch.cuda.ipc_collect()
