@@ -23,7 +23,8 @@ if __name__ == '__main__':
                     'song': song,
                     'dataset': 'filosax',
                     'clean_solo': f'{args.filosax_path}/Participant {participant}/{song:02d}/Sax.wav',
-                    'backing_path': f'{args.filosax_path}/Backing/{song:02d}/backing.wav',
+                    'backing_pd': f'{args.filosax_path}/Backing/{song:02d}/Piano_Drums.wav',
+                    'backing_bd': f'{args.filosax_path}/Backing/{song:02d}/Bass_Drums.wav',
                     'mix_path': np.nan,
                 })
         df = pd.DataFrame(lines)
@@ -40,7 +41,8 @@ if __name__ == '__main__':
                     'song': song_id,
                     'dataset': 'omnibook',
                     'clean_solo': f'{args.omnibook_path}/audio_stems/{song_file}',
-                    'backing_path': np.nan,
+                    'backing_pd': np.nan,
+                    'backing_bd': np.nan,
                     'mix_path': f'{args.omnibook_path}/audio_untuned_mixes/{song_file.replace(".wav", ".mp3")}',
                 })
 
