@@ -54,8 +54,8 @@ if __name__ == '__main__':
     parser.add_argument('--model_dir', type=str, default='tmp')
     args = parser.parse_args()
 
-    separator = Separator(model_file_dir=args.model_dir, output_dir=args.output_dir, sample_rate = 44100, output_single_stem='Woodwinds')
-    separator.load_model('17_HP-Wind_Inst-UVR.pth')
+    #separator = Separator(model_file_dir=args.model_dir, output_dir=args.output_dir, sample_rate = 44100, output_single_stem='Woodwinds')
+    #separator.load_model('17_HP-Wind_Inst-UVR.pth')
 
     os.makedirs(args.output_dir, exist_ok=True)
 
@@ -70,4 +70,4 @@ if __name__ == '__main__':
             mix = mix_tracks_with_loudness(background, solo, srs, target_lufs=-23.0, sax_louder_by=relative_sax_loudness)
             filename = f'{args.output_dir}/{elem["example_id"]}_L{relative_sax_loudness}.wav'
             sf.write(filename, mix, srs)
-            output_files = separator.separate(filename)
+            #output_files = separator.separate(filename)
