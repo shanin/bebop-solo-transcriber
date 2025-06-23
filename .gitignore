@@ -107,6 +107,9 @@ dmypy.json
 # pytest
 .pytest_cache/
 
+# test
+test/
+
 # Distribution / packaging
 .Python
 build/

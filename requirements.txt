@@ -3,3 +3,4 @@ music21
 pandas
 pesto-pitch
 soundfile
+pyloudnorm

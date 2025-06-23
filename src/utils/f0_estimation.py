@@ -5,6 +5,15 @@ import torch
 import numpy as np
 import pandas as pd
 import argparse
+import pyloudnorm as pyln
+
+def loudnorm(x, sr):
+  peak_normalized_audio = pyln.normalize.peak(x, -1.0)
+  meter = pyln.Meter(sr)
+  loudness = meter.integrated_loudness(peak_normalized_audio)
+  loudness_normalized_audio = pyln.normalize.loudness(peak_normalized_audio, loudness, -12.0)
+  return loudness_normalized_audio
+
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
@@ -27,6 +36,7 @@ if __name__ == "__main__":
         continue
 
       x, sr = torchaudio.load(row['clean_solo'])
+      x = loudnorm(x, sr)
       x = x.mean(dim=0) 
       x = x.to(device)
       predictions, confidence, amplitude, activations = pesto_model(x, sr)
