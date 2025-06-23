@@ -36,8 +36,8 @@ if __name__ == "__main__":
         continue
 
       x, sr = torchaudio.load(row['clean_solo'])
-      x = loudnorm(x, sr)
       x = x.mean(dim=0) 
+      x = loudnorm(x, sr)
       x = x.to(device)
       predictions, confidence, amplitude, activations = pesto_model(x, sr)
       predictions = predictions.to('cpu').detach()
