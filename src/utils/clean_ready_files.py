@@ -11,4 +11,7 @@ if __name__ == '__main__':
     suffix = '_(Woodwinds)_17_HP-Wind_Inst-UVR.wav'
     for file in os.listdir(args.destination):
         if file.endswith(suffix):
-            os.remove(os.path.join(args.source, file.split(suffix)[0] + '.wav'))
+            try:
+                os.remove(os.path.join(args.source, file.split(suffix)[0] + '.wav'))
+            except FileNotFoundError:
+                pass
