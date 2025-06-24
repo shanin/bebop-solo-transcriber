@@ -7,18 +7,18 @@ import pandas as pd
 import argparse
 import pyloudnorm as pyln
 
-def loudnorm(x, sr):
+def loudnorm(x, sr, target_lufs=-23.0):
   peak_normalized_audio = pyln.normalize.peak(x, -1.0)
   meter = pyln.Meter(sr)
   loudness = meter.integrated_loudness(peak_normalized_audio)
-  loudness_normalized_audio = pyln.normalize.loudness(peak_normalized_audio, loudness, -12.0)
+  loudness_normalized_audio = pyln.normalize.loudness(peak_normalized_audio, loudness, target_lufs)
   return loudness_normalized_audio
 
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
-  parser.add_argument("--data_list", type=str, default='stages/1_processed_scores/index_omnibook.csv')
-  parser.add_argument("--output_folder", type=str, default='stages/2_pesto_clean/')
+  parser.add_argument("--data_list", type=str, required=True)
+  parser.add_argument("--output_folder", type=str, required=True)
   args = parser.parse_args()
 
   os.makedirs(args.output_folder, exist_ok=True)
