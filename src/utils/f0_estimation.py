@@ -19,6 +19,7 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument("--data_list", type=str, required=True)
   parser.add_argument("--output_folder", type=str, required=True)
+  parser.add_argument("--recompute", type=bool, default=False)
   args = parser.parse_args()
 
   os.makedirs(args.output_folder, exist_ok=True)
@@ -33,7 +34,13 @@ if __name__ == "__main__":
     for _, row in data_list.iterrows():
       idx = row['example_id']
       if os.path.exists(os.path.join(args.output_folder, idx + ".activations.npy")):
-        continue
+        if args.recompute:
+          os.remove(os.path.join(args.output_folder, idx + ".activations.npy"))
+          os.remove(os.path.join(args.output_folder, idx + ".confidence.npy"))
+          os.remove(os.path.join(args.output_folder, idx + ".predictions.npy"))
+          os.remove(os.path.join(args.output_folder, idx + ".amplitude.npy"))
+        else:
+          continue
 
       x, sr = torchaudio.load(row['clean_solo'])
       x = x.mean(dim=0) 
