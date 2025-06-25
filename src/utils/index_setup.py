@@ -33,9 +33,9 @@ if __name__ == '__main__':
         df.to_csv(f'{args.output_dir}/index_filosax.csv', index=False)
 
     if args.dataset in ['uvr_filosax', 'all']:
-        lines = []
         suffix = '_(Woodwinds)_17_HP-Wind_Inst-UVR.wav'
         for relative_sax_loudness in [2, 5, 8]:
+            lines = []
             for participant in range(1, 6):
                 for song in range(1, 49):
                     id_ = f'FS{participant}_{song:02d}'
