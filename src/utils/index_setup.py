@@ -10,6 +10,7 @@ if __name__ == '__main__':
     parser.add_argument('--filosax_path', type=str, required=True)
     parser.add_argument('--uvr_filosax_path', type=str, required=True)
     parser.add_argument('--omnibook_path', type=str, required=True)
+    parser.add_argument('--output_dir', type=str, required=True)
     args = parser.parse_args()
 
     if args.dataset in ['filosax', 'all']:
@@ -29,7 +30,7 @@ if __name__ == '__main__':
                     'mix_path': np.nan,
                 })
         df = pd.DataFrame(lines)
-        df.to_csv('stages/1_processed_scores/index_filosax.csv', index=False)
+        df.to_csv(f'{args.output_dir}/index_filosax.csv', index=False)
 
     if args.dataset in ['uvr_filosax', 'all']:
         lines = []
@@ -49,7 +50,7 @@ if __name__ == '__main__':
                         'mix_path': np.nan,
                     })
             df = pd.DataFrame(lines)
-            df.to_csv(f'stages/1_processed_scores/index_uvr_filosax_L{relative_sax_loudness}.csv', index=False)
+            df.to_csv(f'{args.output_dir}/index_uvr_filosax_L{relative_sax_loudness}.csv', index=False)
 
     if args.dataset in ['omnibook', 'all']:
         lines = []
@@ -68,4 +69,4 @@ if __name__ == '__main__':
                 })
 
         df = pd.DataFrame(lines)
-        df.to_csv('stages/1_processed_scores/index_omnibook.csv', index=False)
+        df.to_csv(f'{args.output_dir}/index_omnibook.csv', index=False)
