@@ -13,7 +13,7 @@ RHYTHM_TOKENS = {
     'otttttottott': {'id': 11, 'count': 1844, 'feel': 'double_time', 'name': '8+16+16'},
     'otttttrrrrrr': {'id': 12, 'count': 233, 'feel': 'swing', 'name': '8+r8'},
     'otototottttt': {'id': 13, 'count': 383, 'feel': 'swing', 'name': '(3)[16+16+16]+8'},
-    'ttttttottott': {'id': 14, 'count': 875, 'feel': 'double_time', 'name': 'r8+16+16'},
+    'ttttttottott': {'id': 14, 'count': 875, 'feel': 'double_time', 'name': 't8+16+16'},
     'rrrrrrototot': {'id': 15, 'count': 238, 'feel': 'double_time', 'name': 'r8+(3)[16+16+16]'},
     'rrrrrrrrottt': {'id': 16, 'count': 188, 'feel': 'swing', 'name': '(3)[r4+4+4]-1h'},
     'otttotttottt': {'id': 17, 'count': 7117, 'feel': 'swing', 'name': '(3)[8+8+8]'},
