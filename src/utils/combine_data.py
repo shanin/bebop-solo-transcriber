@@ -1,5 +1,5 @@
 import os
-import pickle
+import pandas as pd
 import numpy as np
 import json
 import argparse
@@ -120,14 +120,15 @@ def combine_omnibook(labeled_scores, pesto_folder, flux_folder, output_folder):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--labeled_scores', type=str, default='../stages/1_processed_scores/labeled_scores.pkl')
+    parser.add_argument('--labeled_scores', type=str, default='../stages/1_processed_scores/labeled_scores.json')
     parser.add_argument('--pesto_folder', type=str, default='../test')
     parser.add_argument('--flux_folder', type=str, default='../test')
     parser.add_argument('--output_folder', type=str, default='../stages/1b_combined_data')
     parser.add_argument('--mode', type=str, default='filosax')
     args = parser.parse_args()
 
-    labeled_scores = pickle.load(open(args.labeled_scores, 'rb'))
+    with open(args.labeled_scores, 'r') as f:
+        labeled_scores = pd.DataFrame(json.load(f))
 
     if args.mode == 'filosax':
         combine_filosax(labeled_scores, args.pesto_folder, args.flux_folder, args.output_folder)
