@@ -67,10 +67,12 @@ def combine_filosax(labeled_scores, pesto_folder, flux_folder, output_folder):
                 amplitude = np.load(os.path.join(pesto_folder, f'{fsid}.amplitude.npy'))
                 flux = np.load(os.path.join(flux_folder, f'{fsid}.flux.npy'))[:amplitude.shape[0]]
                 
-                activations_dt = np.mean(activations.reshape(-1, 2, activations.shape[1]), axis=1)
-                flux_dt = np.mean(flux.reshape(-1, 2), axis=1)
-                amplitude_dt = np.mean(amplitude.reshape(-1, 2), axis=1)
-                confidence_dt = np.mean(confidence.reshape(-1, 2), axis=1)
+
+                dt_len = activations.shape[0] - activations.shape[0] % 2
+                activations_dt = np.mean(activations[:dt_len].reshape(-1, 2, activations.shape[1]), axis=1)
+                flux_dt = np.mean(flux[:dt_len].reshape(-1, 2), axis=1)
+                amplitude_dt = np.mean(amplitude[:dt_len].reshape(-1, 2), axis=1)
+                confidence_dt = np.mean(confidence[:dt_len].reshape(-1, 2), axis=1)
 
                 metadata = labeled_scores[labeled_scores['participant'] == participant]
                 metadata = metadata[metadata['song'] == song]
