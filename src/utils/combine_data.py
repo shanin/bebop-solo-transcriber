@@ -60,47 +60,49 @@ def prepare_annotations(row, source):
 def combine_filosax(labeled_scores, pesto_folder, flux_folder, output_folder):
     for participant in range(1, 6):
         for song in range(1, 49):
-                fsid = f'FS{participant}_{song:02d}'
+            fsid = f'FS{participant}_{song:02d}'
 
-                activations = np.load(os.path.join(pesto_folder, f'{fsid}.activations.npy'))
-                confidence = np.load(os.path.join(pesto_folder, f'{fsid}.confidence.npy'))
-                amplitude = np.load(os.path.join(pesto_folder, f'{fsid}.amplitude.npy'))
-                flux = np.load(os.path.join(flux_folder, f'{fsid}.flux.npy'))[:amplitude.shape[0]]
-                
+            activations = np.load(os.path.join(pesto_folder, f'{fsid}.activations.npy'))
+            confidence = np.load(os.path.join(pesto_folder, f'{fsid}.confidence.npy'))
+            amplitude = np.load(os.path.join(pesto_folder, f'{fsid}.amplitude.npy'))
+            flux = np.load(os.path.join(flux_folder, f'{fsid}.flux.npy'))[:amplitude.shape[0]]
+            
 
-                dt_len = activations.shape[0] - activations.shape[0] % 2
-                activations_dt = np.mean(activations[:dt_len].reshape(-1, 2, activations.shape[1]), axis=1)
-                flux_dt = np.mean(flux[:dt_len].reshape(-1, 2), axis=1)
-                amplitude_dt = np.mean(amplitude[:dt_len].reshape(-1, 2), axis=1)
-                confidence_dt = np.mean(confidence[:dt_len].reshape(-1, 2), axis=1)
+            dt_len = activations.shape[0] - activations.shape[0] % 2
+            activations_dt = np.mean(activations[:dt_len].reshape(-1, 2, activations.shape[1]), axis=1)
+            flux_dt = np.mean(flux[:dt_len].reshape(-1, 2), axis=1)
+            amplitude_dt = np.mean(amplitude[:dt_len].reshape(-1, 2), axis=1)
+            confidence_dt = np.mean(confidence[:dt_len].reshape(-1, 2), axis=1)
 
-                metadata = labeled_scores[labeled_scores['participant'] == participant]
-                metadata = metadata[metadata['song'] == song]
+            metadata = labeled_scores[labeled_scores['participant'] == participant]
+            metadata = metadata[metadata['song'] == song]
 
-                features = []
-                for _, row in metadata.iterrows():
-                    if row['double_time'] is False:
-                        beats = row['beats']
-                        bar_features = prepare_bar(activations, confidence, amplitude, flux, beats, fps=100, bins=12)
-                        features.append({'features':bar_features, 'annotation': prepare_annotations(row, source='original')})
+            features = []
+            for _, row in metadata.iterrows():
+                if row['double_time'] is False:
+                    beats = row['beats']
+                    bar_features = prepare_bar(activations, confidence, amplitude, flux, beats, fps=100, bins=12)
+                    features.append({'features':bar_features, 'annotation': prepare_annotations(row, source='original')})
 
-                with open(os.path.join(output_folder, f'{fsid}.original.json'), 'w') as f:
-                    json.dump(features, f)
+            with open(os.path.join(output_folder, f'{fsid}.original.json'), 'w') as f:
+                json.dump(features, f)
 
-                features_dt = []
-                for _, row in metadata.iterrows():
-                    if row['double_time'] is True:
-                        beats = row['beats']
-                        bar_features = prepare_bar(activations_dt, confidence_dt, amplitude_dt, flux_dt, beats, fps=100, bins=12)
-                        features_dt.append({'features':bar_features, 'annotation': prepare_annotations(row, source='double_time')})
+            features_dt = []
+            for _, row in metadata.iterrows():
+                if row['double_time'] is True:
+                    beats = row['beats']
+                    bar_features = prepare_bar(activations_dt, confidence_dt, amplitude_dt, flux_dt, beats, fps=100, bins=12)
+                    features_dt.append({'features':bar_features, 'annotation': prepare_annotations(row, source='double_time')})
 
-                with open(os.path.join(output_folder, f'{fsid}.double_time.json'), 'w') as f:
-                    json.dump(features_dt, f)
+            with open(os.path.join(output_folder, f'{fsid}.double_time.json'), 'w') as f:
+                json.dump(features_dt, f)
 
 def combine_omnibook(labeled_scores, pesto_folder, flux_folder, output_folder):
     participant = 'bird'
     songs = labeled_scores[labeled_scores['participant'] == participant]['song'].unique()
     for song in songs:
+        if song == 'GRfYc':
+            continue
 
         activations = np.load(os.path.join(pesto_folder, f'OB_{song}.activations.npy'))
         confidence = np.load(os.path.join(pesto_folder, f'OB_{song}.confidence.npy'))
