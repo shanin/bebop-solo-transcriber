@@ -57,7 +57,7 @@ class SoloDataset(Dataset):
         elif 'x' in signature:
             return 1
         else:
-            return 0
+            return 1 # too rare rhythm 
 
     def generate_mask(self, signature):
         mask = torch.zeros(12, dtype=torch.int64)
