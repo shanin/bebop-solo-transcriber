@@ -45,7 +45,14 @@ def prepare_bar(activations, confidence, amplitude, flux, beats, fps=100, bins=1
         beat_confidence = confidence[int(beats[beat_idx] * fps):int(beats[beat_idx + 1] * fps)]
         beat_features = prepare_beat(beat_activations, beat_confidence, beat_amplitude, beat_flux, bins)
         results.append(beat_features)
-    return results
+    
+    recombined_results = {
+        'activations': np.stack([x['activations'] for x in results], axis=0).tolist(),
+        'flux': np.stack([x['flux'] for x in results], axis=0).tolist(), 
+        'amplitude': np.stack([x['amplitude'] for x in results], axis=0).tolist(),
+        'confidence': np.stack([x['confidence'] for x in results], axis=0).tolist()
+    }
+    return recombined_results
 
 def prepare_annotations(row, source):
     result = []
