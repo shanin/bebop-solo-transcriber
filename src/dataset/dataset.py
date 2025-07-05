@@ -84,6 +84,7 @@ class SoloDataset(Dataset):
         return len(self.data)
     
     def fix_tokens(self, tokens: torch.Tensor):
+        # due to a preprocessing bug there is a meaningless token 128
         tokens[tokens == 129] = 128 # tie token
         tokens[tokens == 130] = 129 # rest token
         return tokens
@@ -94,6 +95,15 @@ class SoloDataset(Dataset):
         confidence = torch.tensor(bar['features']['confidence']).view(48)
         amplitude = torch.tensor(bar['features']['amplitude']).view(48)
         activations = torch.tensor(bar['features']['activations']).view(48, 384)
+        
+        # Filter out NaN values in features
+        flux = torch.nan_to_num(flux, nan=0.0, posinf=1.0, neginf=0.0)
+        confidence = torch.nan_to_num(confidence, nan=0.0, posinf=1.0, neginf=0.0)
+        amplitude = torch.nan_to_num(amplitude, nan=0.0, posinf=1.0, neginf=0.0)
+        
+        # Filter out NaN values in activations
+        activations = torch.nan_to_num(activations, nan=0.0, posinf=1.0, neginf=0.0)
+        
         features = torch.stack([flux, confidence, amplitude], dim = -1)
 
         tokens = torch.concatenate([
@@ -194,6 +204,10 @@ def collate_fn(batch, num_consecutive_bars, random_transposition: bool = False, 
     # Stack activations
     activations = torch.stack([item['activations'] for item in batch]).view(actual_batch_size, num_consecutive_bars, 48, 384)
     
+    # Additional NaN filtering at batch level
+    features = torch.nan_to_num(features, nan=0.0, posinf=1.0, neginf=0.0)
+    activations = torch.nan_to_num(activations, nan=0.0, posinf=1.0, neginf=0.0)
+    
     # Stack tokens
     tokens = torch.stack([item['tokens'] for item in batch]).view(actual_batch_size, num_consecutive_bars, 48)
     mask = torch.stack([item['mask'] for item in batch]).view(actual_batch_size, num_consecutive_bars, 48)
@@ -270,6 +284,6 @@ def dataloader_generator(dataset,
         return torch.utils.data.DataLoader(
             dataset,
             batch_sampler=sampler,
-            num_workers=0,
+            num_workers=7,
             collate_fn=collate_local_fn,
         )
