@@ -83,6 +83,11 @@ class SoloDataset(Dataset):
     def __len__(self):
         return len(self.data)
     
+    def fix_tokens(self, tokens: torch.Tensor):
+        tokens[tokens == 129] = 128 # tie token
+        tokens[tokens == 130] = 129 # rest token
+        return tokens
+
     def __getitem__(self, idx):
         bar = self.data[idx]
         flux = torch.tensor(bar['features']['flux']).view(48)
@@ -97,6 +102,7 @@ class SoloDataset(Dataset):
             torch.tensor(bar['annotation'][2]['beatwise_score']),
             torch.tensor(bar['annotation'][3]['beatwise_score']),
         ])
+        tokens = self.fix_tokens(tokens)
 
         mask = torch.concatenate([
             self.generate_mask(bar['annotation'][0]['rhythm_signature']),
