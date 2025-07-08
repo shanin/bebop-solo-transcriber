@@ -4,6 +4,7 @@ import numpy as np
 import json
 import argparse
 import torch
+from tokenizer.rhythm2int import rhythm_str_to_int
 
 def average_activations(activations: np.ndarray, confidence: np.ndarray):
     normalization = confidence.sum()
@@ -58,7 +59,7 @@ def prepare_bar(activations, confidence, amplitude, flux, beats, fps=100, bins=1
 def prepare_annotations(row):
     return {
         'beatwise_score': [row['beatwise_score'][x] for x in range(4)],
-        'rhythm_signature': [row['rhythm_signature'][x] for x in range(4)],
+        'rhythm_signature': [rhythm_str_to_int(row['rhythm_signature'][x]) for x in range(4)],
         'flags': [row['flag1'], row['flag2'], row['flag3'], row['flag4']],
     }
 
