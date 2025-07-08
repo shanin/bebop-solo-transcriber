@@ -4,8 +4,6 @@ import numpy as np
 import json
 import argparse
 import torch
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.tokenizer.rhythm_tokens import RHYTHM_TOKENS
 
 def rhythm_str_to_int(quaternary_str: str) -> int:
