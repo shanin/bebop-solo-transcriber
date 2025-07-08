@@ -57,7 +57,7 @@ class TrackDataset(Dataset):
         data['rhythm_tokens'] = torch.stack([torch.tensor([self.generate_rhythm_token(x) for x in bar]) for bar in data['rhythm_signatures']])
         data['inferred_time_feel'] = torch.stack([torch.tensor([self.generate_inferred_time_feel(x) for x in bar]) for bar in data['rhythm_signatures']])
         data['source_time_feel'] = torch.tensor(self.source != 'original', dtype=torch.int64)
-        data['mask'] = torch.stack([torch.tensor([self.int_to_mask(x) for x in bar]) for bar in data['rhythm_signatures']])
+        data['mask'] = torch.stack([torch.tensor([int_to_mask(x) for x in bar]) for bar in data['rhythm_signatures']])
         del data['score_annotations']
         return data
 
@@ -95,7 +95,7 @@ class TrackDataset(Dataset):
         else:
             return 43 # too rare rhythm
         
-    def generate_inferred_time_feel(self, integer: int):
+    def generate_inferred_time_feel(self, integer):
         signature = int_to_rhythm_str(integer)
         if signature in self.rhythm_tokens:
             if self.rhythm_tokens[signature]['feel'] == 'swing':
