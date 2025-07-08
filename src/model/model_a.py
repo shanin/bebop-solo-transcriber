@@ -470,14 +470,17 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
         return self.bin_criterion(masked_bin_logits, masked_bin_targets - 1)
     
     def _build_scaffold(self, code: str, device: torch.device):
+        """
+        Replace all pitches with 0, rest with 129, and tie with 128.
+        """
         scaffold = []
         for ch in code:
             if ch == 'r':
-                scaffold.append(0)
+                scaffold.append(129) # rest
             elif ch == 't':
-                scaffold.append(128)
+                scaffold.append(128) # tie
             elif ch == 'o':
-                scaffold.append(129)
+                scaffold.append(0)
         return torch.tensor(scaffold, device=device)
 
     def _generate_structured_predictions(self, bin_logits: torch.Tensor, rhythm_logits: torch.Tensor):
@@ -485,7 +488,7 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
         rhythm_predictions = torch.argmax(filtered_rhythm_logits, dim=-1)
         scaffolds = [self._build_scaffold(INV_RHYTHM_TOKENS[int(code)], bin_logits.device) for code in rhythm_predictions.view(-1)]
         scaffolds = torch.stack(scaffolds, dim=0).view(-1)
-        indices = torch.where(scaffolds == 129) # 129 is the masked pitch token
+        indices = torch.where(scaffolds == 0) # 0 is the masked pitch token
         bin_predictions = torch.argmax(bin_logits, dim=-1) + 1
         final = scaffolds.clone()
         final[indices] = bin_predictions[indices]

@@ -215,7 +215,7 @@ def collate_fn(batch, num_consecutive_bars, random_transposition: bool = False, 
     source_time_feel = torch.stack([item['source_time_feel'] for item in batch]).view(actual_batch_size, num_consecutive_bars, 1)
     
     # Convert rhythm tokens to tensors and stack
-    rhythm_tokens = torch.stack([torch.tensor(item['rhythm_tokens']) for item in batch]).view(actual_batch_size, num_consecutive_bars, 4)
+    rhythm_tokens = torch.stack([item['rhythm_tokens'] for item in batch]).view(actual_batch_size, num_consecutive_bars, 4)
     
     if random_transposition:
         if mode == 'tenor':
@@ -260,6 +260,7 @@ def dataloader_generator(dataset,
                         random_transposition: bool = False,
                         inference: bool = False,
                         batch_size: int = 32,
+                        num_workers: int = 4,
                         mode: str = 'tenor') -> torch.utils.data.DataLoader:
     """
     Creates a DataLoader that samples consecutive bars.
@@ -284,6 +285,6 @@ def dataloader_generator(dataset,
         return torch.utils.data.DataLoader(
             dataset,
             batch_sampler=sampler,
-            num_workers=7,
+            num_workers=num_workers,
             collate_fn=collate_local_fn,
         )
