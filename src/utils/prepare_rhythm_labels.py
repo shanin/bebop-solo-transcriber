@@ -88,10 +88,12 @@ def normal(metadata):
 def double_time(metadata):
     mode = 'double_time'
     new_rows = []
+
     for index in range(len(metadata) // 2 - 1):
         row_1 = metadata.iloc[2*index]
         row_2 = metadata.iloc[2*index+1]
         row_3 = metadata.iloc[2*index+2]
+
 
         if not isinstance(row_1['beatwise_score'], list):
             row_1_score = [[130] * 12] * 4
@@ -107,7 +109,9 @@ def double_time(metadata):
         new_score = [downsample(x, index) for x in merged]
         rhythm_signature = [rhythm_str(x) for x in new_score]
             
+
         new_beats = [row_1['beats'][0] / 2, row_1['beats'][2] / 2, row_2['beats'][0] / 2, row_2['beats'][2] / 2, row_3['beats'][0] / 2]
+
 
         new_rows.append({
             'participant': row_1['participant'],
@@ -153,7 +157,7 @@ def double_time_shifted(metadata):
         merged = [row_1_score[1] + row_1_score[2], row_1_score[3] + row_2_score[0], row_2_score[1] + row_2_score[2], row_2_score[3] + row_3_score[0]]
         new_score = [downsample(x, index) for x in merged]
         rhythm_signature = [rhythm_str(x) for x in new_score]
-            
+
         new_beats = [row_1['beats'][1] / 2, row_1['beats'][3] / 2, row_2['beats'][1] / 2, row_2['beats'][3] / 2, row_3['beats'][1] / 2]
 
         new_rows.append({
