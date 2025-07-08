@@ -52,13 +52,13 @@ class TrackDataset(Dataset):
         data['scalar_features'] = torch.nan_to_num(data['scalar_features'], nan=0.0, posinf=1.0, neginf=0.0)
         data['activations'] = torch.nan_to_num(data['activations'], nan=0.0, posinf=1.0, neginf=0.0)
         data['scalar_features'] = data['scalar_features'].transpose(1, 2)
-        data['tokens'] = data['beatwise_score']
+        data['tokens'] = data['score_annotations']
         data['tokens'] = self.fix_tokens(data['tokens'])
         data['rhythm_tokens'] = torch.stack([torch.tensor([self.generate_rhythm_token(x) for x in bar]) for bar in data['rhythm_signatures']])
         data['inferred_time_feel'] = torch.stack([torch.tensor([self.generate_inferred_time_feel(x) for x in bar]) for bar in data['rhythm_signatures']])
         data['source_time_feel'] = torch.tensor(self.source != 'original', dtype=torch.int64)
         data['mask'] = torch.stack([torch.tensor([self.int_to_mask(x) for x in bar]) for bar in data['rhythm_signatures']])
-        del data['beatwise_score']
+        del data['score_annotations']
         return data
 
         
