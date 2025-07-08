@@ -9,28 +9,52 @@ from typing import Iterator, List
 import numpy as np
 from functools import partial
 
-class SoloDataset(Dataset):
+def int_to_rhythm_str(k: int) -> str:
+    integer = k
+    result = 'oooooooooooo'
+    if integer != 0:
+        substitution = {0: 'o', 1: 't', 2: 'r', 3: 'x'}
+        digits = []
+        while integer:
+            digits.append(int(integer % 4))
+            integer //= 4
+        str_end = ''.join([substitution[digit] for digit in digits[::-1]])
+        result = result[:-len(str_end)] + str_end
+    return result
+
+def int_to_mask(k: int) -> List[int]:
+    integer = k
+    result = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    if integer != 0:
+        digits = []
+        while integer:
+            digits.append(int(integer % 4))
+            integer //= 4
+        end = digits[::-1]
+        for i in range(len(end)):
+            result[-len(end) + i] = end[i]
+    return result
+
+class TrackDataset(Dataset):
     def __init__(self, data_dir=None, source: str = 'original', split: str = 'all'):
         self.data_dir = data_dir
-        self.rhythm_tokens = RHYTHM_TOKENS
         self.source = source
-        self.all_files = [f for f in sorted(os.listdir(data_dir)) if f.endswith('.json')]
+        self.rhythm_tokens = RHYTHM_TOKENS
+        self.all_files = [f for f in sorted(os.listdir(data_dir)) if f.endswith('.pt')]
         self.split = split
         if self.split != 'all':
             self.prepare_splits()
         self.prepare_file_list()
-        self.load_bars()
+        self.load_songs()
 
-    def load_bars(self):
-        self.data = []
-        
+    def load_songs(self):
+        self.songs = []
         # Load all data into memory
         print(f"Loading {len(self.files)} files from {self.data_dir}, mode: {self.source}, split: {self.split}")
         for file in tqdm(self.files):
             file_path = os.path.join(self.data_dir, file)
-            with open(file_path, 'r') as f:
-                bars = json.load(f)
-            self.data.extend(bars)
+            data = torch.load(file_path)
+            self.songs.append(data)
 
     def prepare_file_list(self):
         if self.split == 'train':
@@ -44,7 +68,8 @@ class SoloDataset(Dataset):
         else:
             assert False, f"Invalid split: {self.split}"
         
-    def generate_rhythm_token(self, signature):
+    def generate_rhythm_token(self, integer: int):
+        signature = int_to_rhythm_str(integer)
         if signature in self.rhythm_tokens:
             return self.rhythm_tokens[signature]['id']
         elif 'x' in signature:
@@ -65,23 +90,12 @@ class SoloDataset(Dataset):
         else:
             return 1 # too rare rhythm 
 
-    def generate_mask(self, signature):
-        mask = torch.zeros(12, dtype=torch.int64)
-        for index, x in enumerate(signature):
-            if x == 'o':
-                mask[index] = 0
-            elif x == 'r':
-                mask[index] = 1
-            elif x == 't':
-                mask[index] = 2
-            elif x == 'x':
-                mask[index] = 3
-            else:
-                assert False
-        return mask
+    def generate_mask(self, integer: int):
+        mask = int_to_mask(integer)
+        return torch.tensor(mask, dtype=torch.int64)
 
     def __len__(self):
-        return len(self.data)
+        return len(self.songs)
     
     def fix_tokens(self, tokens: torch.Tensor):
         # due to a preprocessing bug there is a meaningless token 128
@@ -90,6 +104,7 @@ class SoloDataset(Dataset):
         return tokens
 
     def __getitem__(self, idx):
+        return self.songs[idx]
         bar = self.data[idx]
         flux = torch.tensor(bar['features']['flux']).view(48)
         confidence = torch.tensor(bar['features']['confidence']).view(48)
@@ -149,7 +164,7 @@ class SoloDataset(Dataset):
         }
     
 
-class OmnibookDataset(SoloDataset):
+class OmnibookDataset(TrackDataset):
     def prepare_splits(self):
         self.test_files = [
             'OB_1p64c.original.json', 'OB_S5VYc.original.json', 'OB_wkTyc.original.json',
@@ -160,7 +175,7 @@ class OmnibookDataset(SoloDataset):
         self.train_files = [f for f in self.all_files if f not in self.test_files and f not in self.val_files]
 
 
-class FilosaxDataset(SoloDataset):
+class FilosaxDataset(TrackDataset):
     def prepare_splits(self):
         self.test_files = [f'FS{i}_46.{self.source}.json' for i in range(1, 6)] + \
                     [f'FS{i}_47.{self.source}.json' for i in range(1, 6)] + \
@@ -168,7 +183,7 @@ class FilosaxDataset(SoloDataset):
         self.val_files = [f'FS{i}_45.{self.source}.json' for i in range(1, 6)]
         self.train_files = [f for f in self.all_files if f not in self.test_files and f not in self.val_files and f.endswith(f'.{self.source}.json')]
 
-class ConsecutiveBarSampler(Sampler):
+class DEPRECATED_ConsecutiveBarSampler(Sampler):
     def __init__(self, dataset, num_consecutive_bars: int, batch_size: int, inference: bool = False):
         self.dataset = dataset
         self.num_consecutive_bars = num_consecutive_bars
@@ -194,7 +209,9 @@ class ConsecutiveBarSampler(Sampler):
     def __len__(self) -> int:
         return (len(self.starts) + self.batch_size - 1) // self.batch_size
     
-def collate_fn(batch, num_consecutive_bars, random_transposition: bool = False, mode: str = 'tenor'):
+
+
+def DEPRECATED_collate_fn(batch, num_consecutive_bars, random_transposition: bool = False, mode: str = 'tenor'):
     # Calculate actual batch size from the input
     actual_batch_size = len(batch) // num_consecutive_bars
 
@@ -255,7 +272,7 @@ def collate_fn(batch, num_consecutive_bars, random_transposition: bool = False, 
         }
     }
 
-def dataloader_generator(dataset,  
+def DEPRECATED_dataloader_generator(dataset,  
                         num_consecutive_bars: int,
                         random_transposition: bool = False,
                         inference: bool = False,
@@ -287,4 +304,6 @@ def dataloader_generator(dataset,
             batch_sampler=sampler,
             num_workers=num_workers,
             collate_fn=collate_local_fn,
+            pin_memory=True,             # speeds up host‑to‑device transfers
+    persistent_workers=True,  
         )
