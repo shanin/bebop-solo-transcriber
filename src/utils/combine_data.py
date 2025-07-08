@@ -4,7 +4,7 @@ import numpy as np
 import json
 import argparse
 import torch
-from tokenizer.rhythm2int import rhythm_str_to_int
+from src.tokenizer.rhythm2int import rhythm_str_to_int
 
 def average_activations(activations: np.ndarray, confidence: np.ndarray):
     normalization = confidence.sum()
