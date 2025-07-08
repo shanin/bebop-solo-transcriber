@@ -95,7 +95,8 @@ class TrackDataset(Dataset):
         else:
             return 43 # too rare rhythm
         
-    def generate_inferred_time_feel(self, signature):
+    def generate_inferred_time_feel(self, integer: int):
+        signature = int_to_rhythm_str(integer)
         if signature in self.rhythm_tokens:
             if self.rhythm_tokens[signature]['feel'] == 'swing':
                 return 0
