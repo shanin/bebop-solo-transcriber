@@ -4,7 +4,7 @@ import numpy as np
 import json
 import argparse
 import torch
-from src.tokenizer.rhythm_tokens import RHYTHM_TOKENS
+from ..tokenizer.rhythm_tokens import RHYTHM_TOKENS
 
 def rhythm_str_to_int(quaternary_str: str) -> int:
     substitution = {'o': '0', 't': '1', 'r': '2', 'x': '3'}
