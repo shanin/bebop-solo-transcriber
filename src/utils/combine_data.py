@@ -142,6 +142,7 @@ def prepare_annotations(row):
     return {
         'beatwise_score': [fix_score(row['beatwise_score'][x]) for x in range(4)],
         'rhythm_signature': [rhythm_str_to_int(row['rhythm_signature'][x]) for x in range(4)],
+        'raw_rhythm_signature': [row['rhythm_signature'][x] for x in range(4)],
         'rhythm_tokens': [generate_rhythm_token(row['rhythm_signature'][x]) for x in range(4)],
         'flags': [row['flag1'], row['flag2'], row['flag3'], row['flag4']],
     }
@@ -171,6 +172,7 @@ def combine_filosax(labeled_scores, pesto_folder, flux_folder, output_folder):
             song_score_annotations = []
             song_rhythm_signature = []
             song_data_flags = []
+            song_raw_rhythm_signature = []
             for _, row in metadata.iterrows():
                 if row['double_time'] is False:
                     beats = row['beats']
@@ -181,6 +183,7 @@ def combine_filosax(labeled_scores, pesto_folder, flux_folder, output_folder):
                     song_score_annotations.append(bar_annotation['beatwise_score'])
                     song_rhythm_signature.append(bar_annotation['rhythm_signature'])
                     song_data_flags.append(bar_annotation['flags'])
+                    song_raw_rhythm_signature.append(bar_annotation['raw_rhythm_signature'])
 
             # Convert lists to tensors
             activations_tensor = torch.tensor(song_activations)
@@ -199,10 +202,10 @@ def combine_filosax(labeled_scores, pesto_folder, flux_folder, output_folder):
             }
 
             torch_data['scalar_features'] = torch_data['scalar_features'].transpose(1, 2)
-            torch_data['rhythm_tokens'] = torch.stack([torch.tensor([generate_rhythm_token(x) for x in bar]) for bar in torch_data['rhythm_signatures']])
-            torch_data['inferred_time_feel'] = torch.stack([torch.tensor([generate_inferred_time_feel(x) for x in bar]) for bar in torch_data['rhythm_signatures']])
+            torch_data['rhythm_tokens'] = torch.stack([torch.tensor([generate_rhythm_token(x) for x in bar]) for bar in song_raw_rhythm_signature])
+            torch_data['inferred_time_feel'] = torch.stack([torch.tensor([generate_inferred_time_feel(x) for x in bar]) for bar in song_raw_rhythm_signature])
             torch_data['source_time_feel'] = torch.tensor(True, dtype=torch.int64)
-            torch_data['mask'] = torch.stack([torch.tensor([signature_to_mask(x) for x in bar]) for bar in torch_data['rhythm_signatures']])
+            torch_data['mask'] = torch.stack([torch.tensor([signature_to_mask(x) for x in bar]) for bar in song_raw_rhythm_signature])
 
             # Save using torch.save for efficient loading
             torch.save(torch_data, os.path.join(output_folder, f'{fsid}.original.pt'))
@@ -212,6 +215,7 @@ def combine_filosax(labeled_scores, pesto_folder, flux_folder, output_folder):
             song_score_annotations = []
             song_rhythm_signature = []
             song_data_flags = []
+            song_raw_rhythm_signature = []
             for _, row in metadata.iterrows():
                 if row['double_time'] is True:
                     beats = row['beats']
@@ -222,7 +226,7 @@ def combine_filosax(labeled_scores, pesto_folder, flux_folder, output_folder):
                     song_score_annotations.append(bar_annotation['beatwise_score'])
                     song_rhythm_signature.append(bar_annotation['rhythm_signature'])
                     song_data_flags.append(bar_annotation['flags'])
-
+                    song_raw_rhythm_signature.append(bar_annotation['raw_rhythm_signature'])
             # Convert lists to tensors
             activations_tensor = torch.tensor(song_activations)
             scalar_features_tensor = torch.tensor(song_scalar_features) 
@@ -240,10 +244,10 @@ def combine_filosax(labeled_scores, pesto_folder, flux_folder, output_folder):
             }
 
             torch_data['scalar_features'] = torch_data['scalar_features'].transpose(1, 2)
-            torch_data['rhythm_tokens'] = torch.stack([torch.tensor([generate_rhythm_token(x) for x in bar]) for bar in torch_data['rhythm_signatures']])
-            torch_data['inferred_time_feel'] = torch.stack([torch.tensor([generate_inferred_time_feel(x) for x in bar]) for bar in torch_data['rhythm_signatures']])
+            torch_data['rhythm_tokens'] = torch.stack([torch.tensor([generate_rhythm_token(x) for x in bar]) for bar in song_raw_rhythm_signature])
+            torch_data['inferred_time_feel'] = torch.stack([torch.tensor([generate_inferred_time_feel(x) for x in bar]) for bar in song_raw_rhythm_signature])
             torch_data['source_time_feel'] = torch.tensor(False, dtype=torch.int64)
-            torch_data['mask'] = torch.stack([torch.tensor([signature_to_mask(x) for x in bar]) for bar in torch_data['rhythm_signatures']])
+            torch_data['mask'] = torch.stack([torch.tensor([signature_to_mask(x) for x in bar]) for bar in song_raw_rhythm_signature])
 
             torch.save(torch_data, os.path.join(output_folder, f'{fsid}.double_time.pt'))
 
@@ -287,6 +291,7 @@ def combine_omnibook(labeled_scores, pesto_folder, flux_folder, output_folder):
         song_score_annotations = []
         song_rhythm_signature = []
         song_data_flags = []
+        song_raw_rhythm_signature = []
         for _, row in metadata.iterrows():
             beats = row['beats']
             bar_features = prepare_bar(activations, confidence, amplitude, flux, beats, fps=100, bins=12)
@@ -296,6 +301,7 @@ def combine_omnibook(labeled_scores, pesto_folder, flux_folder, output_folder):
             song_score_annotations.append(bar_annotation['beatwise_score'])
             song_rhythm_signature.append(bar_annotation['rhythm_signature'])
             song_data_flags.append(bar_annotation['flags'])
+            song_raw_rhythm_signature.append(bar_annotation['raw_rhythm_signature'])
 
         activations_tensor = torch.tensor(song_activations)
         scalar_features_tensor = torch.tensor(song_scalar_features) 
@@ -311,10 +317,10 @@ def combine_omnibook(labeled_scores, pesto_folder, flux_folder, output_folder):
             'flags': data_flags_tensor
         }
         torch_data['scalar_features'] = torch_data['scalar_features'].transpose(1, 2)
-        torch_data['rhythm_tokens'] = torch.stack([torch.tensor([generate_rhythm_token(x) for x in bar]) for bar in torch_data['rhythm_signatures']])
-        torch_data['inferred_time_feel'] = torch.stack([torch.tensor([generate_inferred_time_feel(x) for x in bar]) for bar in torch_data['rhythm_signatures']])
+        torch_data['rhythm_tokens'] = torch.stack([torch.tensor([generate_rhythm_token(x) for x in bar]) for bar in song_raw_rhythm_signature])
+        torch_data['inferred_time_feel'] = torch.stack([torch.tensor([generate_inferred_time_feel(x) for x in bar]) for bar in song_raw_rhythm_signature])
         torch_data['source_time_feel'] = torch.tensor(True, dtype=torch.int64)
-        torch_data['mask'] = torch.stack([torch.tensor([signature_to_mask(x) for x in bar]) for bar in torch_data['rhythm_signatures']])
+        torch_data['mask'] = torch.stack([torch.tensor([signature_to_mask(x) for x in bar]) for bar in song_raw_rhythm_signature])
 
         torch.save(torch_data, os.path.join(output_folder, f'OB_{song}.original.pt'))
 
