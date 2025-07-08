@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import json
 import argparse
+import torch
 
 def average_activations(activations: np.ndarray, confidence: np.ndarray):
     normalization = confidence.sum()
@@ -46,23 +47,20 @@ def prepare_bar(activations, confidence, amplitude, flux, beats, fps=100, bins=1
         beat_features = prepare_beat(beat_activations, beat_confidence, beat_amplitude, beat_flux, bins)
         results.append(beat_features)
     
-    recombined_results = {
+    return {
         'activations': np.stack([x['activations'] for x in results], axis=0).tolist(),
         'flux': np.stack([x['flux'] for x in results], axis=0).tolist(), 
         'amplitude': np.stack([x['amplitude'] for x in results], axis=0).tolist(),
         'confidence': np.stack([x['confidence'] for x in results], axis=0).tolist()
     }
-    return recombined_results
 
-def prepare_annotations(row, source):
-    result = []
-    for x in [0,1,2,3]:
-        result.append({
-            'beatwise_score': row['beatwise_score'][x],
-            'rhythm_signature': row['rhythm_signature'][x],
-            'flags': [row['flag1'], row['flag2'], row['flag3'], row['flag4']],
-        })
-    return result
+
+def prepare_annotations(row):
+    return {
+        'beatwise_score': [row['beatwise_score'][x] for x in range(4)],
+        'rhythm_signature': [row['rhythm_signature'][x] for x in range(4)],
+        'flags': [row['flag1'], row['flag2'], row['flag3'], row['flag4']],
+    }
 
 def combine_filosax(labeled_scores, pesto_folder, flux_folder, output_folder):
     for participant in range(1, 6):
@@ -84,25 +82,75 @@ def combine_filosax(labeled_scores, pesto_folder, flux_folder, output_folder):
             metadata = labeled_scores[labeled_scores['participant'] == participant]
             metadata = metadata[metadata['song'] == song]
 
-            features = []
+            song_activations = []
+            song_scalar_features = []
+            song_score_annotations = []
+            song_rhythm_signature = []
+            song_data_flags = []
             for _, row in metadata.iterrows():
                 if row['double_time'] is False:
                     beats = row['beats']
                     bar_features = prepare_bar(activations, confidence, amplitude, flux, beats, fps=100, bins=12)
-                    features.append({'features':bar_features, 'annotation': prepare_annotations(row, source='original')})
+                    bar_annotation = prepare_annotations(row)
+                    song_activations.append(bar_features['activations'])
+                    song_scalar_features.append([bar_features['flux'], bar_features['amplitude'], bar_features['confidence']])
+                    song_score_annotations.append(bar_annotation['beatwise_score'])
+                    song_rhythm_signature.append(bar_annotation['rhythm_signature'])
+                    song_data_flags.append(bar_annotation['flags'])
 
-            with open(os.path.join(output_folder, f'{fsid}.original.json'), 'w') as f:
-                json.dump(features, f)
+            # Convert lists to tensors
+            activations_tensor = torch.tensor(song_activations)
+            scalar_features_tensor = torch.tensor(song_scalar_features) 
+            score_annotations_tensor = torch.tensor(song_score_annotations)
+            rhythm_signature_tensor = torch.tensor(song_rhythm_signature)
+            data_flags_tensor = torch.tensor(song_data_flags)
 
-            features_dt = []
+            # Save tensors in a dictionary
+            torch_data = {
+                'activations': activations_tensor,
+                'scalar_features': scalar_features_tensor,
+                'score_annotations': score_annotations_tensor,
+                'rhythm_signatures': rhythm_signature_tensor,
+                'flags': data_flags_tensor
+            }
+
+            # Save using torch.save for efficient loading
+            torch.save(torch_data, os.path.join(output_folder, f'{fsid}.original.pt'))
+
+            song_activations = []
+            song_scalar_features = []
+            song_score_annotations = []
+            song_rhythm_signature = []
+            song_data_flags = []
             for _, row in metadata.iterrows():
                 if row['double_time'] is True:
                     beats = row['beats']
                     bar_features = prepare_bar(activations_dt, confidence_dt, amplitude_dt, flux_dt, beats, fps=100, bins=12)
-                    features_dt.append({'features':bar_features, 'annotation': prepare_annotations(row, source='double_time')})
+                    bar_annotation = prepare_annotations(row)
+                    song_activations.append(bar_features['activations'])
+                    song_scalar_features.append([bar_features['flux'], bar_features['amplitude'], bar_features['confidence']])
+                    song_score_annotations.append(bar_annotation['beatwise_score'])
+                    song_rhythm_signature.append(bar_annotation['rhythm_signature'])
+                    song_data_flags.append(bar_annotation['flags'])
 
-            with open(os.path.join(output_folder, f'{fsid}.double_time.json'), 'w') as f:
-                json.dump(features_dt, f)
+            # Convert lists to tensors
+            activations_tensor = torch.tensor(song_activations)
+            scalar_features_tensor = torch.tensor(song_scalar_features) 
+            score_annotations_tensor = torch.tensor(song_score_annotations)
+            rhythm_signature_tensor = torch.tensor(song_rhythm_signature)
+            data_flags_tensor = torch.tensor(song_data_flags)
+
+            # Save tensors in a dictionary
+            torch_data = {
+                'activations': activations_tensor,
+                'scalar_features': scalar_features_tensor,
+                'score_annotations': score_annotations_tensor,
+                'rhythm_signatures': rhythm_signature_tensor,
+                'flags': data_flags_tensor
+            }
+
+            torch.save(torch_data, os.path.join(output_folder, f'{fsid}.double_time.pt'))
+
 
 def combine_omnibook(labeled_scores, pesto_folder, flux_folder, output_folder):
     participant = 'bird'
@@ -118,14 +166,36 @@ def combine_omnibook(labeled_scores, pesto_folder, flux_folder, output_folder):
         
         metadata = labeled_scores[labeled_scores['song'] == song]
 
-        features = []
+        song_activations = []
+        song_scalar_features = []
+        song_score_annotations = []
+        song_rhythm_signature = []
+        song_data_flags = []
         for _, row in metadata.iterrows():
             beats = row['beats']
             bar_features = prepare_bar(activations, confidence, amplitude, flux, beats, fps=100, bins=12)
-            features.append({'features':bar_features, 'annotation': prepare_annotations(row, source='original')})
+            bar_annotation = prepare_annotations(row)
+            song_activations.append(bar_features['activations'])
+            song_scalar_features.append([bar_features['flux'], bar_features['amplitude'], bar_features['confidence']])
+            song_score_annotations.append(bar_annotation['beatwise_score'])
+            song_rhythm_signature.append(bar_annotation['rhythm_signature'])
+            song_data_flags.append(bar_annotation['flags'])
 
-        with open(os.path.join(output_folder, f'OB_{song}.original.json'), 'w') as f:
-            json.dump(features, f)
+        activations_tensor = torch.tensor(song_activations)
+        scalar_features_tensor = torch.tensor(song_scalar_features) 
+        score_annotations_tensor = torch.tensor(song_score_annotations)
+        rhythm_signature_tensor = torch.tensor(song_rhythm_signature)
+        data_flags_tensor = torch.tensor(song_data_flags)
+
+        torch_data = {
+            'activations': activations_tensor,
+            'scalar_features': scalar_features_tensor,
+            'score_annotations': score_annotations_tensor,
+            'rhythm_signatures': rhythm_signature_tensor,
+            'flags': data_flags_tensor
+        }
+
+        torch.save(torch_data, os.path.join(output_folder, f'OB_{song}.original.pt'))
 
                
 if __name__ == '__main__':
