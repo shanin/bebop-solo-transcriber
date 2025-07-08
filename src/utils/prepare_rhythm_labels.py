@@ -88,9 +88,11 @@ def normal(metadata):
 def double_time(metadata):
     mode = 'double_time'
     new_rows = []
-    for index in range(len(metadata) // 2):
+    for index in range(len(metadata) // 2 - 1):
         row_1 = metadata.iloc[2*index]
         row_2 = metadata.iloc[2*index+1]
+        row_3 = metadata.iloc[2*index+2]
+
         if not isinstance(row_1['beatwise_score'], list):
             row_1_score = [[130] * 12] * 4
             assert row_1['flag1'] != row_1['flag1'] and row_1['flag2'] != row_1['flag2'], f"Unexpected flag values at bar {index}: {row_1['flag1']} {row_1['flag2']}"
@@ -105,7 +107,7 @@ def double_time(metadata):
         new_score = [downsample(x, index) for x in merged]
         rhythm_signature = [rhythm_str(x) for x in new_score]
             
-        new_beats = [row_1['beats'][0] / 2, row_1['beats'][2] / 2, row_2['beats'][0] / 2, row_2['beats'][2] / 2]
+        new_beats = [row_1['beats'][0] / 2, row_1['beats'][2] / 2, row_2['beats'][0] / 2, row_2['beats'][2] / 2, row_3['beats'][0] / 2]
 
         new_rows.append({
             'participant': row_1['participant'],
@@ -152,7 +154,7 @@ def double_time_shifted(metadata):
         new_score = [downsample(x, index) for x in merged]
         rhythm_signature = [rhythm_str(x) for x in new_score]
             
-        new_beats = [row_1['beats'][1] / 2, row_1['beats'][3] / 2, row_2['beats'][1] / 2, row_2['beats'][3] / 2]
+        new_beats = [row_1['beats'][1] / 2, row_1['beats'][3] / 2, row_2['beats'][1] / 2, row_2['beats'][3] / 2, row_3['beats'][1] / 2]
 
         new_rows.append({
             'participant': row_1['participant'],
