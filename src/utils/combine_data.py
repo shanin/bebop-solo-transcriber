@@ -4,7 +4,11 @@ import numpy as np
 import json
 import argparse
 import torch
-from src.tokenizer.rhythm2int import rhythm_str_to_int
+
+def rhythm_str_to_int(quaternary_str: str) -> int:
+    substitution = {'o': '0', 't': '1', 'r': '2', 'x': '3'}
+    quaternary_str = quaternary_str.translate(str.maketrans(substitution))
+    return int(quaternary_str, base=4)
 
 def average_activations(activations: np.ndarray, confidence: np.ndarray):
     normalization = confidence.sum()
