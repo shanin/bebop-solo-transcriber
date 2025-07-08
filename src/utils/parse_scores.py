@@ -5,6 +5,8 @@ import os
 import numpy as np
 import json
 import argparse
+import pickle
+
 
 def parse_score(path, file, participant, song):
     all_notes = []
@@ -37,7 +39,10 @@ def parse_omnibook_scores(path = '../omnibook_stages/raw/CharlieParkerAlignedOmn
     for file in files:
         if not file.endswith('.xml'):
             continue
-        all_notes.extend(parse_score(path, file, 'bird', file.split('.xml')[0]))
+
+        all_notes.extend(parse_score(path, file, 'bird', file.split('.xml')[0].split('-')[0]))
+
+
     notes_df = pd.DataFrame(all_notes)
     return notes_df
 
@@ -51,7 +56,8 @@ def parse_filosax_scores(path = '../stages/0_copy_scores'):
     return notes_df
 
 def add_note_onsets_and_durations(notes_df, quarter_len=24):
-    notes_df['ticks'] = (notes_df.duration * quarter_len).astype(int)
+    notes_df['ticks'] = (notes_df.duration * quarter_len).astype(float).round().astype(int)
+
     notes_df['onsets'] = (notes_df.position * quarter_len).astype(float).round().astype(int)
     return notes_df
 
@@ -119,7 +125,8 @@ def parse_omnibook_syncpoints(path = '../omnibook_stages/raw/CharlieParkerAligne
     for file in syncpoints_files:
         if not file.endswith('.json'):
             continue
-        song_name = file.split('-syncpoints.json')[0]
+        song_name = file.split('-')[0]
+
         syncpoints.extend(parse_syncpoint_file(path, file, 'bird', song_name))
     syncpoints = pd.DataFrame(syncpoints)
     return syncpoints
@@ -151,8 +158,10 @@ def compile_annotations():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parse music scores from Omnibook and Filosax datasets')
-    parser.add_argument('--output', type=str, default='stages/1_processed_scores/combined_scores.csv',
-                       help='Output file path for the processed scores (default: combined_scores.csv)')
+
+    parser.add_argument('--output', type=str, default='stages/1_processed_scores/combined_scores.pkl',
+                       help='Output file path for the processed scores (default: combined_scores.pkl)')
+
     parser.add_argument('--omnibook-path', type=str, 
                        default='stages/0_raw/CharlieParkerAlignedOmnibookPublication/musicxml',
                        help='Path to Omnibook musicxml files')
@@ -185,6 +194,9 @@ if __name__ == '__main__':
     final_scores = pd.concat([omnibook_scores, filosax_scores])
     
     print(f"Saving {len(final_scores)} records to {args.output}")
-    final_scores.to_csv(args.output, index=False)
+
+    #final_scores.to_csv(args.output, index=False)
+    pickle.dump(final_scores, open(args.output, 'wb'))
+
     print("Processing complete!")
     

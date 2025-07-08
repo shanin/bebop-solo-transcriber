@@ -1,3 +1,6 @@
 numpy==1.26.4
 music21
 pandas
+pesto-pitch
+soundfile
+pyloudnorm
