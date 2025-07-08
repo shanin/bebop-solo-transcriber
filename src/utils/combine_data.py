@@ -4,11 +4,38 @@ import numpy as np
 import json
 import argparse
 import torch
+from src.tokenizer.rhythm_tokens import RHYTHM_TOKENS
 
 def rhythm_str_to_int(quaternary_str: str) -> int:
     substitution = {'o': '0', 't': '1', 'r': '2', 'x': '3'}
     quaternary_str = quaternary_str.translate(str.maketrans(substitution))
     return int(quaternary_str, base=4)
+
+def int_to_rhythm_str(k: int) -> str:
+    integer = k
+    result = 'oooooooooooo'
+    if integer != 0:
+        substitution = {0: 'o', 1: 't', 2: 'r', 3: 'x'}
+        digits = []
+        while integer:
+            digits.append(int(integer % 4))
+            integer //= 4
+        str_end = ''.join([substitution[digit] for digit in digits[::-1]])
+        result = result[:-len(str_end)] + str_end
+    return result
+
+def signature_to_mask(signature: str):
+    mask = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    for i in range(len(signature)):
+        if signature[i] == 'o':
+            mask[i] = 0
+        elif signature[i] == 't':
+            mask[i] = 1
+        elif signature[i] == 'r':
+            mask[i] = 2
+        elif signature[i] == 'x':
+            mask[i] = 3
+    return mask
 
 def average_activations(activations: np.ndarray, confidence: np.ndarray):
     normalization = confidence.sum()
@@ -60,10 +87,18 @@ def prepare_bar(activations, confidence, amplitude, flux, beats, fps=100, bins=1
     }
 
 
+def fix_score(score):
+    score = np.array(score)
+    score[score == 129] = 128 # tie token
+    score[score == 130] = 129 # rest token
+    return score
+
+
 def prepare_annotations(row):
     return {
-        'beatwise_score': [row['beatwise_score'][x] for x in range(4)],
+        'beatwise_score': [fix_score(row['beatwise_score'][x]) for x in range(4)],
         'rhythm_signature': [rhythm_str_to_int(row['rhythm_signature'][x]) for x in range(4)],
+        'rhythm_tokens': [generate_rhythm_token(row['rhythm_signature'][x]) for x in range(4)],
         'flags': [row['flag1'], row['flag2'], row['flag3'], row['flag4']],
     }
 
@@ -114,10 +149,16 @@ def combine_filosax(labeled_scores, pesto_folder, flux_folder, output_folder):
             torch_data = {
                 'activations': activations_tensor,
                 'scalar_features': scalar_features_tensor,
-                'score_annotations': score_annotations_tensor,
+                'tokens': score_annotations_tensor,
                 'rhythm_signatures': rhythm_signature_tensor,
                 'flags': data_flags_tensor
             }
+
+            torch_data['scalar_features'] = torch_data['scalar_features'].transpose(1, 2)
+            torch_data['rhythm_tokens'] = torch.stack([torch.tensor([generate_rhythm_token(x) for x in bar]) for bar in torch_data['rhythm_signatures']])
+            torch_data['inferred_time_feel'] = torch.stack([torch.tensor([generate_inferred_time_feel(x) for x in bar]) for bar in torch_data['rhythm_signatures']])
+            torch_data['source_time_feel'] = torch.tensor(True, dtype=torch.int64)
+            torch_data['mask'] = torch.stack([torch.tensor([signature_to_mask(x) for x in bar]) for bar in torch_data['rhythm_signatures']])
 
             # Save using torch.save for efficient loading
             torch.save(torch_data, os.path.join(output_folder, f'{fsid}.original.pt'))
@@ -149,13 +190,39 @@ def combine_filosax(labeled_scores, pesto_folder, flux_folder, output_folder):
             torch_data = {
                 'activations': activations_tensor,
                 'scalar_features': scalar_features_tensor,
-                'score_annotations': score_annotations_tensor,
+                'tokens': score_annotations_tensor,
                 'rhythm_signatures': rhythm_signature_tensor,
                 'flags': data_flags_tensor
             }
 
+            torch_data['scalar_features'] = torch_data['scalar_features'].transpose(1, 2)
+            torch_data['rhythm_tokens'] = torch.stack([torch.tensor([generate_rhythm_token(x) for x in bar]) for bar in torch_data['rhythm_signatures']])
+            torch_data['inferred_time_feel'] = torch.stack([torch.tensor([generate_inferred_time_feel(x) for x in bar]) for bar in torch_data['rhythm_signatures']])
+            torch_data['source_time_feel'] = torch.tensor(False, dtype=torch.int64)
+            torch_data['mask'] = torch.stack([torch.tensor([signature_to_mask(x) for x in bar]) for bar in torch_data['rhythm_signatures']])
+
             torch.save(torch_data, os.path.join(output_folder, f'{fsid}.double_time.pt'))
 
+def generate_rhythm_token(signature: str):
+    if signature in RHYTHM_TOKENS:
+        return RHYTHM_TOKENS[signature]['id']
+    elif 'x' in signature:
+        return 42 # too fast rhythm
+    else:
+        return 43 # too rare rhythm
+    
+def generate_inferred_time_feel(signature: str):
+    if signature in RHYTHM_TOKENS:
+        if RHYTHM_TOKENS[signature]['feel'] == 'swing':
+            return 0
+        elif RHYTHM_TOKENS[signature]['feel'] == 'double_time':
+            return 1
+        else:
+            assert False
+    elif 'x' in signature:
+        return 1
+    else:
+        return 1 # too rare rhythm 
 
 def combine_omnibook(labeled_scores, pesto_folder, flux_folder, output_folder):
     participant = 'bird'
@@ -195,10 +262,15 @@ def combine_omnibook(labeled_scores, pesto_folder, flux_folder, output_folder):
         torch_data = {
             'activations': activations_tensor,
             'scalar_features': scalar_features_tensor,
-            'score_annotations': score_annotations_tensor,
+            'tokens': score_annotations_tensor,
             'rhythm_signatures': rhythm_signature_tensor,
             'flags': data_flags_tensor
         }
+        torch_data['scalar_features'] = torch_data['scalar_features'].transpose(1, 2)
+        torch_data['rhythm_tokens'] = torch.stack([torch.tensor([generate_rhythm_token(x) for x in bar]) for bar in torch_data['rhythm_signatures']])
+        torch_data['inferred_time_feel'] = torch.stack([torch.tensor([generate_inferred_time_feel(x) for x in bar]) for bar in torch_data['rhythm_signatures']])
+        torch_data['source_time_feel'] = torch.tensor(True, dtype=torch.int64)
+        torch_data['mask'] = torch.stack([torch.tensor([signature_to_mask(x) for x in bar]) for bar in torch_data['rhythm_signatures']])
 
         torch.save(torch_data, os.path.join(output_folder, f'OB_{song}.original.pt'))
 
