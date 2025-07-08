@@ -167,21 +167,21 @@ class TrackDataset(Dataset):
 class OmnibookDataset(TrackDataset):
     def prepare_splits(self):
         self.test_files = [
-            'OB_1p64c.original.json', 'OB_S5VYc.original.json', 'OB_wkTyc.original.json',
+            'OB_1p64c.original.pt', 'OB_S5VYc.original.pt', 'OB_wkTyc.original.pt',
         ]
         self.val_files = [
-            'OB_Nqn4c.original.json', 'OB_6Cbwc.original.json'
+            'OB_Nqn4c.original.pt', 'OB_6Cbwc.original.pt'
         ]
         self.train_files = [f for f in self.all_files if f not in self.test_files and f not in self.val_files]
 
 
 class FilosaxDataset(TrackDataset):
     def prepare_splits(self):
-        self.test_files = [f'FS{i}_46.{self.source}.json' for i in range(1, 6)] + \
-                    [f'FS{i}_47.{self.source}.json' for i in range(1, 6)] + \
-                    [f'FS{i}_48.{self.source}.json' for i in range(1, 6)]
-        self.val_files = [f'FS{i}_45.{self.source}.json' for i in range(1, 6)]
-        self.train_files = [f for f in self.all_files if f not in self.test_files and f not in self.val_files and f.endswith(f'.{self.source}.json')]
+        self.test_files = [f'FS{i}_46.{self.source}.pt' for i in range(1, 6)] + \
+                    [f'FS{i}_47.{self.source}.pt' for i in range(1, 6)] + \
+                    [f'FS{i}_48.{self.source}.pt' for i in range(1, 6)]
+        self.val_files = [f'FS{i}_45.{self.source}.pt' for i in range(1, 6)]
+        self.train_files = [f for f in self.all_files if f not in self.test_files and f not in self.val_files and f.endswith(f'.{self.source}.pt')]
 
 class DEPRECATED_ConsecutiveBarSampler(Sampler):
     def __init__(self, dataset, num_consecutive_bars: int, batch_size: int, inference: bool = False):
