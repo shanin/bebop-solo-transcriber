@@ -143,7 +143,7 @@ class InferenceDataset(Dataset):
     def __init__(self, track, num_consecutive_bars: int):
         self.track = track
         self.num_consecutive_bars = num_consecutive_bars
-        self.num_bars = self.track['features'].shape[0]
+        self.num_bars = self.track['scalar_features'].shape[0]
         self.full_segments = self.num_bars // self.num_consecutive_bars
         self.last_segment = self.num_bars % self.num_consecutive_bars
         self.num_segments = self.full_segments + (1 if self.last_segment > 0 else 0) # 1 if there is a last segment
