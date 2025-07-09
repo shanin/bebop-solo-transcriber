@@ -124,7 +124,7 @@ class SegmentDataset(Dataset):
         segment = {
             'x': {
                 'activations': track['activations'][bar_idx:bar_idx + self.num_consecutive_bars],
-                'scalar_features': track['scalar_features'][bar_idx:bar_idx + self.num_consecutive_bars],
+                'features': track['scalar_features'][bar_idx:bar_idx + self.num_consecutive_bars],
             },
             'y': {
                 'tokens': track['tokens'][bar_idx:bar_idx + self.num_consecutive_bars],
