@@ -38,7 +38,7 @@ class TrackDataset(Dataset):
             assert False, f"Invalid split: {self.split}"
 
     def __len__(self):
-        return len(self.songs)
+        return len(self.files)
 
     def __getitem__(self, idx):
         file_path = os.path.join(self.data_dir, self.files[idx])

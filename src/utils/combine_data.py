@@ -364,9 +364,9 @@ def combine_inference(pesto_folder, flux_folder, beats_folder, output_folder):
             
             torch_data = {
                 'activations': activations_tensor,
-                'scalar_features': scalar_features_tensor,
+                'features': scalar_features_tensor,
             }
-            torch_data['scalar_features'] = torch_data['scalar_features'].transpose(1, 2)
+            torch_data['features'] = torch_data['features'].transpose(1, 2)
             if not os.path.exists(output_folder):
                 os.makedirs(output_folder)
             torch.save(torch_data, os.path.join(output_folder, f'{id_}.pt'))
