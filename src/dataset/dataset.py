@@ -100,17 +100,17 @@ class SegmentDataset(Dataset):
         elif self.mode == 'alto':
             min_shift = -8
             max_shift = 4
-        pitch_mask = (segment['tokens'] < 128)
+        pitch_mask = (segment['y']['tokens'] < 128)
         if pitch_mask.any():
-            min_pitch = segment['tokens'][pitch_mask].min().item()
-            max_pitch = segment['tokens'][pitch_mask].max().item()
+            min_pitch = segment['y']['tokens'][pitch_mask].min().item()
+            max_pitch = segment['y']['tokens'][pitch_mask].max().item()
             min_shift = max(min_shift, - min_pitch)
             max_shift = min(max_shift, 127 - max_pitch)
             shift = np.random.randint(min_shift, max_shift + 1)
             # Apply shift only to pitch tokens
-            pitch_tokens = segment['tokens'][pitch_mask]
-            segment['tokens'][pitch_mask] = pitch_tokens + shift
-            segment['activations'] = torch.roll(segment['activations'], shifts=shift*3, dims=-1)
+            pitch_tokens = segment['y']['tokens'][pitch_mask]
+            segment['y']['tokens'][pitch_mask] = pitch_tokens + shift
+            segment['x']['activations'] = torch.roll(segment['x']['activations'], shifts=shift*3, dims=-1)
         return segment
 
     def __getitem__(self, idx):
