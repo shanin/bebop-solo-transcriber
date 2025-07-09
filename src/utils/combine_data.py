@@ -324,7 +324,52 @@ def combine_omnibook(labeled_scores, pesto_folder, flux_folder, output_folder):
 
         torch.save(torch_data, os.path.join(output_folder, f'OB_{song}.original.pt'))
 
-               
+def prepare_beats(beats):
+    syncpoints = beats[:,0]
+    beat_nums = beats[:,1]
+    bars = []
+    content = []
+    for i in range(len(syncpoints)):
+        if beat_nums[i] == 1:
+            if len(content) == 4:
+                content.append(syncpoints[i]) # that's right, should be 1, 2, 3, 4, 1
+                bars.append(content)
+            content = []
+        content.append(syncpoints[i])
+    return bars
+
+
+
+def combine_inference(pesto_folder, flux_folder, beats_folder, output_folder):
+    files = os.listdir(beats_folder)
+    for file in files:
+        if file.endswith('.beats.tsv'):
+            id_ = file.split('.beats.tsv')[0]
+            beats = np.loadtxt(os.path.join(beats_folder, file))
+            bars = prepare_beats(beats)
+            activations = np.load(os.path.join(pesto_folder, f'{id_}.activations.npy'))
+            confidence = np.load(os.path.join(pesto_folder, f'{id_}.confidence.npy'))
+            amplitude = np.load(os.path.join(pesto_folder, f'{id_}.amplitude.npy'))
+            flux = np.load(os.path.join(flux_folder, f'{id_}.flux.npy'))[:amplitude.shape[0]]
+
+            song_activations = []
+            song_scalar_features = []
+            for bar in bars:
+                bar_features = prepare_bar(activations, confidence, amplitude, flux, bar, fps=100, bins=12)
+                song_activations.append(bar_features['activations'])
+                song_scalar_features.append([bar_features['flux'], bar_features['amplitude'], bar_features['confidence']])
+                
+            activations_tensor = torch.tensor(song_activations)
+            scalar_features_tensor = torch.tensor(song_scalar_features)
+            
+            torch_data = {
+                'activations': activations_tensor,
+                'scalar_features': scalar_features_tensor,
+            }
+            torch_data['scalar_features'] = torch_data['scalar_features'].transpose(1, 2)
+            torch.save(torch_data, os.path.join(output_folder, f'{id_}.pt'))
+
+            
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
@@ -333,7 +378,12 @@ if __name__ == '__main__':
     parser.add_argument('--flux_folder', type=str, default='../test')
     parser.add_argument('--output_folder', type=str, default='../stages/1b_combined_data')
     parser.add_argument('--mode', type=str, default='filosax')
+    parser.add_argument('--beats_folder', type=str, default='../test')
     args = parser.parse_args()
+
+    if args.mode == 'inference':
+        combine_inference(args.pesto_folder, args.flux_folder, args.beats_folder, args.output_folder)
+        exit()
 
     with open(args.labeled_scores, 'r') as f:
         labeled_scores = pd.DataFrame(json.load(f))
