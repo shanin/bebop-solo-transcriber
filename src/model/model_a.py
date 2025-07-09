@@ -529,7 +529,7 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
         else:
             raise NotImplementedError("don't know what to do here -- without teacher forcing we don't have ground truth")
         
-        if mode == 'train':
+        if mode != 'train':
             structured_predictions = self._generate_structured_predictions(bin_logits, rhythm_logits)
 
             # Compute token-level accuracy
