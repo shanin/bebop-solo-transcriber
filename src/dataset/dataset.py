@@ -122,12 +122,17 @@ class SegmentDataset(Dataset):
         else:
             track = self.dataset[track_idx]
         segment = {
-            'tokens': track['tokens'][bar_idx:bar_idx + self.num_consecutive_bars],
-            'rhythm_tokens': track['rhythm_tokens'][bar_idx:bar_idx + self.num_consecutive_bars],
-            'mask': track['mask'][bar_idx:bar_idx + self.num_consecutive_bars],
-            'inferred_time_feel': track['inferred_time_feel'][bar_idx:bar_idx + self.num_consecutive_bars],
-            'source_time_feel': track['source_time_feel'],
-            'scalar_features': track['scalar_features'][bar_idx:bar_idx + self.num_consecutive_bars],
+            'x': {
+                'activations': track['activations'][bar_idx:bar_idx + self.num_consecutive_bars],
+                'scalar_features': track['scalar_features'][bar_idx:bar_idx + self.num_consecutive_bars],
+            },
+            'y': {
+                'tokens': track['tokens'][bar_idx:bar_idx + self.num_consecutive_bars],
+                'rhythm_tokens': track['rhythm_tokens'][bar_idx:bar_idx + self.num_consecutive_bars],
+                'mask': track['mask'][bar_idx:bar_idx + self.num_consecutive_bars],
+                'inferred_time_feel': track['inferred_time_feel'][bar_idx:bar_idx + self.num_consecutive_bars],
+                'source_time_feel': track['source_time_feel'],
+            },
         }
         if self.random_transposition:
             segment = self.transposition(segment)
