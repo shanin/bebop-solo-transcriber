@@ -137,14 +137,14 @@ class JointPitchRhythmFeatureEncoder(nn.Module):
         """
         # Get inputs
         activations = x['activations']  # [batch, bars, beats, bins, activation_dim]
-        features = x['features']  # [batch, bars, beats, feature_dim]
+        features = x['features']  # [batch, bars, beats, feature_dim, bins]
 
         # Get original shapes
         batch_size, num_bars, num_beats, num_bins, activation_dim = activations.shape
         _, _, _, features_dim, _ = features.shape
         activations = activations.view(batch_size, num_bars, num_beats * num_bins, activation_dim)
         features = features.transpose(-1, -2)
-        features = features.view(batch_size, num_bars, num_beats * num_bins, features_dim)
+        features = features.reshape(batch_size, num_bars, num_beats * num_bins, features_dim)
 
         # Prepare masked rhythm embeddings
         # Create indices tensor filled with zeros (since we have only one embedding)
