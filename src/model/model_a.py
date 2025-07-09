@@ -38,20 +38,27 @@ class PositionEmbedding(nn.Module):
         Returns:
             torch.Tensor: Position embeddings of shape [batch, bars, time, embedding_dim]
         """
-        batch_size, num_bars, seq_len, _ = x['features'].shape
+
+        features = x['features']  # [batch, bars, beats, feature_dim, bins]
+
+        # Get original shapes
+        batch_size, num_bars, num_beats, features_dim, num_bins = features.shape
+        seq_len = num_beats * num_bins
+        device = features.device
+
         
         # Create beat indices (0-3 for each beat)
-        beat_indices = torch.arange(seq_len, device=x['features'].device) // 12
+        beat_indices = torch.arange(seq_len, device=device) // 12
         beat_indices = beat_indices.unsqueeze(0).unsqueeze(0)  # [1, 1, time]
         beat_indices = beat_indices.expand(batch_size, num_bars, -1)  # [batch, bars, time]
         
         # Create subdivision indices (0-11 for each subdivision)
-        subdivision_indices = torch.arange(seq_len, device=x['features'].device) % 12
+        subdivision_indices = torch.arange(seq_len, device=device) % 12
         subdivision_indices = subdivision_indices.unsqueeze(0).unsqueeze(0)  # [1, 1, time]
         subdivision_indices = subdivision_indices.expand(batch_size, num_bars, -1)  # [batch, bars, time]
         
         # Get relative bar indices (0 to num_bars-1)
-        bar_indices = torch.arange(num_bars, device=x['features'].device)  # [bars]
+        bar_indices = torch.arange(num_bars, device=device)  # [bars]
         bar_indices = bar_indices.unsqueeze(0).unsqueeze(-1)  # [1, bars, 1] 
         bar_indices = bar_indices.expand(batch_size, -1, seq_len)  # [batch, bars, time]
         
@@ -64,12 +71,12 @@ class PositionEmbedding(nn.Module):
         position_emb = beat_emb + subdivision_emb + bar_emb  # [batch, bars, time, embedding_dim]
 
         # Rhythm position embeddings
-        rhythm_beat_indices = torch.arange(seq_len // 12, device=x['features'].device) % 4
+        rhythm_beat_indices = torch.arange(seq_len // 12, device=device) % 4
         rhythm_beat_indices = rhythm_beat_indices.unsqueeze(0).unsqueeze(0)
         rhythm_beat_indices = rhythm_beat_indices.expand(batch_size, num_bars, -1)
         rhythm_beat_emb = self.beat_embedding(rhythm_beat_indices)
 
-        rhythm_bar_indices = torch.arange(seq_len // 12, device=x['features'].device) // 4
+        rhythm_bar_indices = torch.arange(seq_len // 12, device=device) // 4
         rhythm_bar_indices = rhythm_bar_indices.unsqueeze(0).unsqueeze(0)
         rhythm_bar_indices = rhythm_bar_indices.expand(batch_size, num_bars, -1)
         rhythm_bar_emb = self.bar_embedding(rhythm_bar_indices)
