@@ -81,12 +81,14 @@ class SegmentDataset(Dataset):
         self.num_consecutive_bars = num_consecutive_bars
         self.random_transposition = random_transposition
         self.index = []
+        self.cache = {}
+        self.use_cache = use_cache
         for track_idx, track in enumerate(self.dataset):
             num_bars = track['tokens'].shape[0]
             for i in range(0, num_bars - self.num_consecutive_bars + 1):
                 self.index.append((track_idx, i))
-        self.cache = {}
-        self.use_cache = use_cache
+            if self.use_cache:
+                self.cache[track_idx] = track
     
     def __len__(self):
         return len(self.index)
