@@ -136,8 +136,8 @@ class JointPitchRhythmFeatureEncoder(nn.Module):
             torch.Tensor: Fused embeddings of shape [batch, bars, time, embedding_dim]
         """
         # Get inputs
-        activations = x['x']['activations']  # [batch, bars, beats, bins, activation_dim]
-        features = x['x']['features']  # [batch, bars, beats, feature_dim]
+        activations = x['activations']  # [batch, bars, beats, bins, activation_dim]
+        features = x['features']  # [batch, bars, beats, feature_dim]
 
         # Get original shapes
         batch_size, num_bars, num_beats, num_bins, activation_dim = activations.shape
