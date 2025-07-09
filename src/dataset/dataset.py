@@ -138,3 +138,30 @@ class SegmentDataset(Dataset):
             segment = self.transposition(segment)
 
         return segment
+    
+class InferenceDataset(Dataset):
+    def __init__(self, track, num_consecutive_bars: int):
+        self.track = track
+        self.num_consecutive_bars = num_consecutive_bars
+        self.num_bars = self.track['features'].shape[0]
+        self.full_segments = self.num_bars // self.num_consecutive_bars
+        self.last_segment = self.num_bars % self.num_consecutive_bars
+        self.num_segments = self.full_segments + (1 if self.last_segment > 0 else 0) # 1 if there is a last segment
+    
+    def __len__(self):
+        return self.num_segments
+
+    def __getitem__(self, idx):
+        if idx < self.full_segments:
+            bar_idx = idx * self.num_consecutive_bars
+        else:
+            bar_idx = self.full_segments * self.num_consecutive_bars
+            bar_idx += self.last_segment
+
+        segment = {
+            'x': {
+                'activations': self.track['activations'][bar_idx:bar_idx + self.num_consecutive_bars],
+                'features': self.track['scalar_features'][bar_idx:bar_idx + self.num_consecutive_bars],
+            },
+        }
+        return segment
