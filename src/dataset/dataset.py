@@ -86,6 +86,7 @@ class SegmentDataset(Dataset):
             for i in range(0, num_bars - self.num_consecutive_bars + 1):
                 self.index.append((track_idx, i))
         self.cache = {}
+        self.use_cache = use_cache
     
     def __len__(self):
         return len(self.index)
