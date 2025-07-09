@@ -136,11 +136,15 @@ class JointPitchRhythmFeatureEncoder(nn.Module):
             torch.Tensor: Fused embeddings of shape [batch, bars, time, embedding_dim]
         """
         # Get inputs
-        activations = x['activations']  # [batch, bars, time, activation_dim]
-        features = x['features']  # [batch, bars, time, feature_dim]
+        activations = x['x']['activations']  # [batch, bars, beats, bins, activation_dim]
+        features = x['x']['features']  # [batch, bars, beats, feature_dim]
 
         # Get original shapes
-        batch_size, num_bars, seq_len, _ = activations.shape
+        batch_size, num_bars, num_beats, num_bins, activation_dim = activations.shape
+        _, _, _, features_dim, _ = features.shape
+        activations = activations.view(batch_size, num_bars, num_beats * num_bins, activation_dim)
+        features = features.transpose(-1, -2)
+        features = features.view(batch_size, num_bars, num_beats * num_bins, features_dim)
 
         # Prepare masked rhythm embeddings
         # Create indices tensor filled with zeros (since we have only one embedding)
@@ -164,7 +168,7 @@ class JointPitchRhythmFeatureEncoder(nn.Module):
         fused = self.fusion(combined)  # [batch*bars*time, embedding_dim]
         
         # Reshape back to original dimensions
-        fused = fused.view(batch_size, num_bars, seq_len, -1)  # [batch, bars, time, embedding_dim]
+        fused = fused.view(batch_size, num_bars, num_beats * num_bins, -1)  # [batch, bars, time, embedding_dim]
         
         # Add position embeddings
         position_emb, rhythm_position_emb = self.position_bin_rhythm_embedding(x)  # [batch, bars, time, embedding_dim]
