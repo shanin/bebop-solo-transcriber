@@ -7,7 +7,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 import wandb
 from typing import Dict, Any, Optional, List, Tuple
 import json
-
+from datetime import datetime
 from src.tokenizer.rhythm_tokens import RHYTHM_TOKENS
 INV_RHYTHM_TOKENS = {v['id']: k for k, v in RHYTHM_TOKENS.items()}
 
@@ -417,6 +417,7 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
                  learning_rate: float = 1e-4,
                  weight_decay: float = 0.01,
                  project_name: str = "solo-transcriber",
+                 experiment_name: str = "default",
                  rhythm_loss_weight: float = 1.0,
                  teacher_forcing: bool = False):
         """
@@ -449,8 +450,13 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
         self.rhythm_criterion = nn.CrossEntropyLoss()
         
         # Initialize wandb
+        if experiment_name == "default":
+            name = f'{project_name}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}'
+        else:
+            name = experiment_name
         self.wandb_logger = WandbLogger(
             project=project_name,
+            name=name,
             log_model=True
         )
         
