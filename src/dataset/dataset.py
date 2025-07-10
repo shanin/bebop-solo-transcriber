@@ -43,16 +43,15 @@ class TrackDataset(Dataset):
 
     def perform_hard_transposition(self, data):
         if self.hard_transpose != 0:
-            data['tokens'] = data['tokens'] + self.hard_transpose
-            data['tokens'][data['tokens'] == 128 + self.hard_transpose] = 128
-            data['tokens'][data['tokens'] == 129 + self.hard_transpose] = 129
+            pitch_mask = (data['tokens'] < 128)
+            data['tokens'][pitch_mask] += self.hard_transpose
         return data
 
     def __getitem__(self, idx):
         file_path = os.path.join(self.data_dir, self.files[idx])
         data = torch.load(file_path)
         data = self.process_annotations(data)
-        data = self.perform_hard_transposition(data)
+        #data = self.perform_hard_transposition(data)
         return data
     
 
