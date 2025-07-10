@@ -51,7 +51,7 @@ class TrackDataset(Dataset):
         file_path = os.path.join(self.data_dir, self.files[idx])
         data = torch.load(file_path)
         data = self.process_annotations(data)
-        #data = self.perform_hard_transposition(data)
+        data = self.perform_hard_transposition(data)
         return data
     
 
@@ -91,6 +91,7 @@ class SegmentDataset(Dataset):
         self.random_transposition = random_transposition
         self.index = []
         self.cache = {}
+        # Note: use_cache should be False when using num_workers > 0 to avoid race conditions
         self.use_cache = use_cache
         for track_idx, track in enumerate(self.dataset):
             num_bars = track['tokens'].shape[0]
@@ -109,27 +110,48 @@ class SegmentDataset(Dataset):
         elif self.mode == 'alto':
             min_shift = -8
             max_shift = 4
+        else:
+            # Default safe range
+            min_shift = -6
+            max_shift = 6
+            
         pitch_mask = (segment['y']['tokens'] < 128)
         if pitch_mask.any():
             min_pitch = segment['y']['tokens'][pitch_mask].min().item()
             max_pitch = segment['y']['tokens'][pitch_mask].max().item()
-            min_shift = max(min_shift, - min_pitch)
+            
+            # Ensure we don't go out of valid pitch range (0-127)
+            min_shift = max(min_shift, -min_pitch)
             max_shift = min(max_shift, 127 - max_pitch)
-            shift = np.random.randint(min_shift, max_shift + 1)
-            # Apply shift only to pitch tokens
-            pitch_tokens = segment['y']['tokens'][pitch_mask]
-            segment['y']['tokens'][pitch_mask] = pitch_tokens + shift
-            segment['x']['activations'] = torch.roll(segment['x']['activations'], shifts=shift*3, dims=-1)
+            
+            # Only apply transposition if we have a valid range
+            if min_shift <= max_shift:
+                # Use torch.random for better multiprocessing compatibility
+                shift = torch.randint(min_shift, max_shift + 1, (1,)).item()
+                
+                # Apply shift only to pitch tokens (0-127)
+                pitch_tokens = segment['y']['tokens'][pitch_mask]
+                new_pitch_tokens = pitch_tokens + shift
+                
+                # Ensure we stay within valid range
+                new_pitch_tokens = torch.clamp(new_pitch_tokens, 0, 127)
+                segment['y']['tokens'][pitch_mask] = new_pitch_tokens
+                
+                # Apply corresponding shift to activations
+                # Note: shift*3 assumes 3 bins per semitone - adjust if different
+                segment['x']['activations'] = torch.roll(segment['x']['activations'], shifts=shift*3, dims=-1)
+        
         return segment
 
     def __getitem__(self, idx):
         track_idx, bar_idx = self.index[idx]
-        if self.use_cache:
-            if track_idx not in self.cache:
-                self.cache[track_idx] = self.dataset[track_idx]
+        
+        # Load track data
+        if self.use_cache and track_idx in self.cache:
             track = self.cache[track_idx]
         else:
             track = self.dataset[track_idx]
+        
         segment = {
             'x': {
                 'activations': track['activations'][bar_idx:bar_idx + self.num_consecutive_bars],
