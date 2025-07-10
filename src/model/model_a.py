@@ -592,6 +592,9 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
         
     def validation_step(self, batch: Dict[str, Dict[str, torch.Tensor]], batch_idx: int) -> torch.Tensor:
         return self.generic_step(batch, batch_idx, 'val')
+    
+    def test_step(self, batch: Dict[str, Dict[str, torch.Tensor]], batch_idx: int) -> torch.Tensor:
+        return self.generic_step(batch, batch_idx, 'test')
         
     def configure_optimizers(self) -> torch.optim.Optimizer:
         optimizer = torch.optim.AdamW(
