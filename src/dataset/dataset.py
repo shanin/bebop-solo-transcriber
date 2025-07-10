@@ -10,9 +10,10 @@ import numpy as np
 from functools import partial
 
 class TrackDataset(Dataset):
-    def __init__(self, data_dir=None, source: str = 'original', split: str = 'all'):
+    def __init__(self, data_dir=None, source: str = 'original', split: str = 'all', hard_transpose: int = 0):
         self.data_dir = data_dir
         self.source = source
+        self.hard_transpose = hard_transpose
         self.rhythm_tokens = RHYTHM_TOKENS
         self.all_files = [f for f in sorted(os.listdir(data_dir)) if f.endswith('.pt')]
         self.split = split
@@ -40,10 +41,18 @@ class TrackDataset(Dataset):
     def __len__(self):
         return len(self.files)
 
+    def perform_hard_transposition(self, data):
+        if self.hard_transpose != 0:
+            data['tokens'] = data['tokens'] + self.hard_transpose
+            data['tokens'][data['tokens'] == 128 + self.hard_transpose] = 128
+            data['tokens'][data['tokens'] == 129 + self.hard_transpose] = 129
+        return data
+
     def __getitem__(self, idx):
         file_path = os.path.join(self.data_dir, self.files[idx])
         data = torch.load(file_path)
         data = self.process_annotations(data)
+        data = self.perform_hard_transposition(data)
         return data
     
 
@@ -66,6 +75,7 @@ class FilosaxDataset(TrackDataset):
     def __init__(self, data_dir=None, source: str = 'original', split: str = 'all'):
         super().__init__(data_dir, source, split)
         self.instrument = 'tenor'
+        self.hard_transpose = -14
 
     def prepare_splits(self):
         self.test_files = [f'FS{i}_46.{self.source}.pt' for i in range(1, 6)] + \
