@@ -132,15 +132,15 @@ class SegmentDataset(Dataset):
             track = self.dataset[track_idx]
         segment = {
             'x': {
-                'activations': track['activations'][bar_idx:bar_idx + self.num_consecutive_bars],
-                'features': track['scalar_features'][bar_idx:bar_idx + self.num_consecutive_bars],
+                'activations': track['activations'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
+                'features': track['scalar_features'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
             },
             'y': {
-                'tokens': track['tokens'][bar_idx:bar_idx + self.num_consecutive_bars],
-                'rhythm_tokens': track['rhythm_tokens'][bar_idx:bar_idx + self.num_consecutive_bars],
-                'mask': track['mask'][bar_idx:bar_idx + self.num_consecutive_bars],
-                'inferred_time_feel': track['inferred_time_feel'][bar_idx:bar_idx + self.num_consecutive_bars],
-                'source_time_feel': track['source_time_feel'],
+                'tokens': track['tokens'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
+                'rhythm_tokens': track['rhythm_tokens'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
+                'mask': track['mask'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
+                'inferred_time_feel': track['inferred_time_feel'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
+                'source_time_feel': track['source_time_feel'].clone(),
             },
         }
         if self.random_transposition:
