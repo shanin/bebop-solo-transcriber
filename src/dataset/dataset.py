@@ -161,6 +161,8 @@ class InferenceDataset(Dataset):
         return self.num_segments
 
     def __getitem__(self, idx):
+        if idx >= self.num_segments:
+            raise IndexError(f"Index {idx} is out of range for dataset with {self.num_segments} segments")
         if idx < self.full_segments:
             bar_idx = idx * self.num_consecutive_bars
         else:
