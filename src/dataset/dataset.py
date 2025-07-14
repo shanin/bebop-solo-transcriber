@@ -165,7 +165,7 @@ class InferenceDataset(Dataset):
             bar_idx = idx * self.num_consecutive_bars
         else:
             bar_idx = self.full_segments * self.num_consecutive_bars
-            bar_idx += self.last_segment
+            bar_idx -= (self.num_consecutive_bars - self.last_segment)
 
         segment = {
             'x': {
