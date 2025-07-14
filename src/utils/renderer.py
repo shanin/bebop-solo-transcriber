@@ -22,7 +22,6 @@ def prepare_beats(beats):
 
 def tokens_to_score_midi(tokens, 
                   tempo: float = 120.0,
-                  ticks_per_beat: int = 480,
                   add_clicks: bool = True,
                   click_type: str = 'woodblock',
                   compensate = 0) -> pretty_midi.PrettyMIDI:
@@ -341,7 +340,7 @@ def main(beats_file, tokens, midi_performance_output_file, midi_score_output_fil
     midi = tokens_to_performance_midi(tokens, beats = bars, add_clicks = False)
     midi.write(midi_performance_output_file)
     midi_to_audio_stereo(midi_performance_output_file, audio_path, output_path)
-    midi = tokens_to_score_midi(tokens, beats = bars, add_clicks = False)
+    midi = tokens_to_score_midi(tokens, add_clicks = True)
     midi.write(midi_score_output_file)
 
 
