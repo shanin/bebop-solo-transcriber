@@ -220,4 +220,5 @@ if __name__ == '__main__':
     omnibook_scores = pd.concat(normal_scores)
 
     all_scores = pd.concat([omnibook_scores, all_filosax_scores])
-    all_scores.to_pickle(os.path.join(args.output_dir, 'labeled_scores.pkl'))
+    #all_scores.to_pickle(os.path.join(args.output_dir, 'labeled_scores.v2.pkl'))
+    all_scores.to_json(os.path.join(args.output_dir, 'labeled_scores.v2.json'), orient='records')

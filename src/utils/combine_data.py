@@ -389,6 +389,7 @@ if __name__ == '__main__':
 
     with open(args.labeled_scores, 'r') as f:
         labeled_scores = pd.DataFrame(json.load(f))
+    labeled_scores = labeled_scores.replace({None: np.nan})
 
     if args.mode == 'filosax':
         combine_filosax(labeled_scores, args.pesto_folder, args.flux_folder, args.output_folder)
