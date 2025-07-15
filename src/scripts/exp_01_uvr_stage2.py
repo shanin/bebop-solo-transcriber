@@ -49,7 +49,6 @@ def main(args):
     filosax_train_loader = DataLoader(
         filosax_train,
         batch_size=512,
-        shuffle=True,
         num_workers=0,
         sampler=sampler
     )
