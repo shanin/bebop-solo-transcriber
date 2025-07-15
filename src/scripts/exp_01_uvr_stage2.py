@@ -53,17 +53,7 @@ def main(args):
         sampler=sampler
     )
 
-    model = RhythmScaffoldLightningModule(
-        embedding_dim=128,
-        num_heads=4,
-        num_layers=4,
-        teacher_forcing=True,
-        project_name="solo-transcriber",
-        experiment_name = args.experiment_name
-    )
-
-    if args.starting_checkpoint is not None:
-        model.load_from_checkpoint(args.starting_checkpoint)
+    model = RhythmScaffoldLightningModule.load_from_checkpoint(args.starting_checkpoint)
 
     early_stop_callback = EarlyStopping(
         monitor="val_loss",     # or any other metric you log
