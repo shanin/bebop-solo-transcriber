@@ -66,11 +66,11 @@ def tokens_to_score_midi(tokens,
     seconds_per_beat = 60.0 / tempo
     
     # Process each bar in the slice
+    current_pitch = None
+    current_start = None
+    current_duration = 0
     for bar_idx in range(len(tokens)):
         global_bar_idx = bar_idx
-        current_pitch = None
-        current_start = None
-        current_duration = 0
         
         # Add clicks if requested
         if add_clicks:
@@ -101,8 +101,8 @@ def tokens_to_score_midi(tokens,
                 
                 if token == 129:  # Rest token
                     if current_pitch is not None:  # End current note
-                        start_time = (global_bar_idx * 48 + current_start) * seconds_per_beat / 12
-                        end_time = (global_bar_idx * 48 + current_start + current_duration) * seconds_per_beat / 12
+                        start_time = (current_start) * seconds_per_beat / 12
+                        end_time = (current_start + current_duration) * seconds_per_beat / 12
                         note = pretty_midi.Note(
                             velocity=100,
                             pitch=current_pitch - compensate,
@@ -119,15 +119,15 @@ def tokens_to_score_midi(tokens,
                 else:  # Note token (1-127)
                     if current_pitch is None:  # New note
                         current_pitch = token
-                        current_start = t
+                        current_start = global_bar_idx * 48 + t
                         current_duration = 1
                     elif token == current_pitch:  # Same note continues
                         current_duration += 1
                     else:  # Different note
                         # Add previous note to MIDI
                         if current_pitch is not None:
-                            start_time = (global_bar_idx * 48 + current_start) * seconds_per_beat / 12
-                            end_time = (global_bar_idx * 48 + current_start + current_duration) * seconds_per_beat / 12
+                            start_time = (current_start) * seconds_per_beat / 12
+                            end_time = (current_start + current_duration) * seconds_per_beat / 12
                             note = pretty_midi.Note(
                                 velocity=100,
                                 pitch=current_pitch - compensate,
@@ -138,20 +138,20 @@ def tokens_to_score_midi(tokens,
                         
                         # Start new note
                         current_pitch = token
-                        current_start = t
+                        current_start = global_bar_idx * 48 + t
                         current_duration = 1
             
-            # Handle last note in bar
-            if current_pitch is not None:
-                start_time = (global_bar_idx * 48 + current_start) * seconds_per_beat / 12
-                end_time = (global_bar_idx * 48 + current_start + current_duration) * seconds_per_beat / 12
-                note = pretty_midi.Note(
-                    velocity=100,
-                    pitch=current_pitch - compensate,
-                    start=start_time,
-                    end=end_time
-                )
-                piano_program.notes.append(note)
+    # Handle last note
+    if current_pitch is not None:
+        start_time = (current_start) * seconds_per_beat / 12
+        end_time = (current_start + current_duration) * seconds_per_beat / 12
+        note = pretty_midi.Note(
+            velocity=100,
+            pitch=current_pitch - compensate,
+            start=start_time,
+            end=end_time
+        )
+        piano_program.notes.append(note)
     
     # Add instruments to MIDI file
     midi.instruments.append(piano_program)
@@ -211,12 +211,11 @@ def tokens_to_performance_midi(tokens,
     
         
     # Process each bar in the slice
-    
+    current_pitch = None
+    current_start = None
+    current_duration = 0    
     for bar_idx in range(len(tokens)):
-        global_bar_idx = bar_idx
-        current_pitch = None
-        current_start = None
-        current_duration = 0
+        
         
         # Add clicks if requested
         if add_clicks:
@@ -255,8 +254,8 @@ def tokens_to_performance_midi(tokens,
             
             if token == 129:  # Rest token
                 if current_pitch is not None:  # End current note
-                    start_time = beats[bar_idx][0] + current_start 
-                    end_time = beats[bar_idx][0] + (current_start + current_duration) 
+                    start_time = current_start 
+                    end_time = current_start + current_duration
                     note = pretty_midi.Note(
                         velocity=100,
                         pitch=current_pitch - compensate,
@@ -273,15 +272,15 @@ def tokens_to_performance_midi(tokens,
             else:  # Note token (1-127)
                 if current_pitch is None:  # New note
                     current_pitch = token
-                    current_start = t * seconds_per_beat /12
+                    current_start = beats[bar_idx][0] + t * seconds_per_beat /12
                     current_duration = seconds_per_beat / 12
                 elif token == current_pitch:  # Same note continues
                     current_duration += seconds_per_beat / 12
                 else:  # Different note
                     # Add previous note to MIDI
                     if current_pitch is not None:
-                        start_time = beats[bar_idx][0] + current_start 
-                        end_time = beats[bar_idx][0] + current_start + current_duration
+                        start_time = current_start 
+                        end_time = current_start + current_duration
                         note = pretty_midi.Note(
                             velocity=100,
                             pitch=current_pitch - compensate,
@@ -292,20 +291,20 @@ def tokens_to_performance_midi(tokens,
                     
                     # Start new note
                     current_pitch = token
-                    current_start = t * seconds_per_beat / 12
+                    current_start = beats[bar_idx][0] +t * seconds_per_beat / 12
                     current_duration = seconds_per_beat / 12
         
-        # Handle last note in bar
-        if current_pitch is not None:
-            start_time = beats[bar_idx][0] + current_start
-            end_time = beats[bar_idx][0] + current_start + current_duration
-            note = pretty_midi.Note(
-                velocity=100,
-                pitch=current_pitch - compensate,
-                start=start_time,
-                end=end_time
-            )
-            piano_program.notes.append(note)
+    # Handle last note 
+    if current_pitch is not None:
+        start_time = current_start
+        end_time = current_start + current_duration
+        note = pretty_midi.Note(
+            velocity=100,
+            pitch=current_pitch - compensate,
+            start=start_time,
+            end=end_time
+        )
+        piano_program.notes.append(note)
     
     # Add instruments to MIDI file
     midi.instruments.append(piano_program)
