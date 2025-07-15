@@ -125,8 +125,8 @@ def tokens_to_score_midi(tokens,
                         current_pitch = token
                         current_start = global_bar_idx * 48 + t
                         current_duration = 1
-                    elif token == current_pitch:  # Same note continues
-                        current_duration += 1
+                    #elif token == current_pitch:  # Same note continues
+                    #    current_duration += 1
                     else:  # Different note
                         # Add previous note to MIDI
                         if current_pitch is not None:
@@ -278,8 +278,8 @@ def tokens_to_performance_midi(tokens,
                     current_pitch = token
                     current_start = beats[bar_idx][0] + t * seconds_per_beat /12
                     current_duration = seconds_per_beat / 12
-                elif token == current_pitch:  # Same note continues
-                    current_duration += seconds_per_beat / 12
+                #elif token == current_pitch:  # Same note continues
+                #    current_duration += seconds_per_beat / 12
                 else:  # Different note
                     # Add previous note to MIDI
                     if current_pitch is not None:
