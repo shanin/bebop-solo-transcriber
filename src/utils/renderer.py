@@ -17,6 +17,10 @@ def prepare_beats(beats):
                 bars.append(content)
             content = []
         content.append(syncpoints[i])
+    if len(content) == 4:
+        beat_len = syncpoints[-1] - syncpoints[-2]
+        content.append(syncpoints[-1] + beat_len)
+        bars.append(content)
     return bars
 
 
