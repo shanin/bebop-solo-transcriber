@@ -131,7 +131,7 @@ class SegmentDataset(Dataset):
             segment['x']['activations'] = torch.roll(segment['x']['activations'], shifts=shift*3, dims=-1)
         return segment
     
-    def pitch_shift(self, segment):
+    def apply_pitch_shift(self, segment):
         shift = np.random.randint(-1, 2)
         segment['x']['activations'] = torch.roll(segment['x']['activations'], shifts=shift, dims=-1)
         return segment
@@ -160,7 +160,7 @@ class SegmentDataset(Dataset):
         if self.random_transposition:
             segment = self.transposition(segment)
         if self.pitch_shift:
-            segment = self.pitch_shift(segment)
+            segment = self.apply_pitch_shift(segment)
         return segment
     
 class InferenceDataset(Dataset):
