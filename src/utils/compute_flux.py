@@ -58,4 +58,6 @@ if __name__ == '__main__':
         example_id = row['example_id']
         audio_path = row['clean_solo']
         flux = calculate_spectral_flux(audio_path)
+        if not os.path.exists(args.output_folder):
+            os.makedirs(args.output_folder)
         np.save(os.path.join(args.output_folder, example_id + '.flux.npy'), flux)

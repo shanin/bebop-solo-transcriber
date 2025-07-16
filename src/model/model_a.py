@@ -7,7 +7,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 import wandb
 from typing import Dict, Any, Optional, List, Tuple
 import json
-
+from datetime import datetime
 from src.tokenizer.rhythm_tokens import RHYTHM_TOKENS
 INV_RHYTHM_TOKENS = {v['id']: k for k, v in RHYTHM_TOKENS.items()}
 
@@ -26,7 +26,7 @@ class PositionEmbedding(nn.Module):
         self.subdivision_embedding = nn.Embedding(13, embedding_dim)
         
         # Bar embeddings (for different bar positions in the sequence)
-        self.bar_embedding = nn.Embedding(32, embedding_dim)  # Assuming max 100 bars per sequence
+        self.bar_embedding = nn.Embedding(32, embedding_dim)  # Assuming max 32 bars per sequence
         
     def forward(self, x: dict) -> torch.Tensor:
         """
@@ -38,20 +38,27 @@ class PositionEmbedding(nn.Module):
         Returns:
             torch.Tensor: Position embeddings of shape [batch, bars, time, embedding_dim]
         """
-        batch_size, num_bars, seq_len, _ = x['features'].shape
+
+        features = x['features']  # [batch, bars, beats, feature_dim, bins]
+
+        # Get original shapes
+        batch_size, num_bars, num_beats, features_dim, num_bins = features.shape
+        seq_len = num_beats * num_bins
+        device = features.device
+
         
         # Create beat indices (0-3 for each beat)
-        beat_indices = torch.arange(seq_len, device=x['features'].device) // 12
+        beat_indices = torch.arange(seq_len, device=device) // 12
         beat_indices = beat_indices.unsqueeze(0).unsqueeze(0)  # [1, 1, time]
         beat_indices = beat_indices.expand(batch_size, num_bars, -1)  # [batch, bars, time]
         
         # Create subdivision indices (0-11 for each subdivision)
-        subdivision_indices = torch.arange(seq_len, device=x['features'].device) % 12
+        subdivision_indices = torch.arange(seq_len, device=device) % 12
         subdivision_indices = subdivision_indices.unsqueeze(0).unsqueeze(0)  # [1, 1, time]
         subdivision_indices = subdivision_indices.expand(batch_size, num_bars, -1)  # [batch, bars, time]
         
         # Get relative bar indices (0 to num_bars-1)
-        bar_indices = torch.arange(num_bars, device=x['features'].device)  # [bars]
+        bar_indices = torch.arange(num_bars, device=device)  # [bars]
         bar_indices = bar_indices.unsqueeze(0).unsqueeze(-1)  # [1, bars, 1] 
         bar_indices = bar_indices.expand(batch_size, -1, seq_len)  # [batch, bars, time]
         
@@ -64,12 +71,12 @@ class PositionEmbedding(nn.Module):
         position_emb = beat_emb + subdivision_emb + bar_emb  # [batch, bars, time, embedding_dim]
 
         # Rhythm position embeddings
-        rhythm_beat_indices = torch.arange(seq_len // 12, device=x['features'].device) % 4
+        rhythm_beat_indices = torch.arange(seq_len // 12, device=device) % 4
         rhythm_beat_indices = rhythm_beat_indices.unsqueeze(0).unsqueeze(0)
         rhythm_beat_indices = rhythm_beat_indices.expand(batch_size, num_bars, -1)
         rhythm_beat_emb = self.beat_embedding(rhythm_beat_indices)
 
-        rhythm_bar_indices = torch.arange(seq_len // 12, device=x['features'].device) // 4
+        rhythm_bar_indices = torch.arange(seq_len // 12, device=device) // 4
         rhythm_bar_indices = rhythm_bar_indices.unsqueeze(0).unsqueeze(0)
         rhythm_bar_indices = rhythm_bar_indices.expand(batch_size, num_bars, -1)
         rhythm_bar_emb = self.bar_embedding(rhythm_bar_indices)
@@ -136,11 +143,15 @@ class JointPitchRhythmFeatureEncoder(nn.Module):
             torch.Tensor: Fused embeddings of shape [batch, bars, time, embedding_dim]
         """
         # Get inputs
-        activations = x['activations']  # [batch, bars, time, activation_dim]
-        features = x['features']  # [batch, bars, time, feature_dim]
+        activations = x['activations']  # [batch, bars, beats, bins, activation_dim]
+        features = x['features']  # [batch, bars, beats, feature_dim, bins]
 
         # Get original shapes
-        batch_size, num_bars, seq_len, _ = activations.shape
+        batch_size, num_bars, num_beats, num_bins, activation_dim = activations.shape
+        _, _, _, features_dim, _ = features.shape
+        activations = activations.view(batch_size, num_bars, num_beats * num_bins, activation_dim)
+        features = features.transpose(-1, -2)
+        features = features.reshape(batch_size, num_bars, num_beats * num_bins, features_dim)
 
         # Prepare masked rhythm embeddings
         # Create indices tensor filled with zeros (since we have only one embedding)
@@ -164,7 +175,7 @@ class JointPitchRhythmFeatureEncoder(nn.Module):
         fused = self.fusion(combined)  # [batch*bars*time, embedding_dim]
         
         # Reshape back to original dimensions
-        fused = fused.view(batch_size, num_bars, seq_len, -1)  # [batch, bars, time, embedding_dim]
+        fused = fused.view(batch_size, num_bars, num_beats * num_bins, -1)  # [batch, bars, time, embedding_dim]
         
         # Add position embeddings
         position_emb, rhythm_position_emb = self.position_bin_rhythm_embedding(x)  # [batch, bars, time, embedding_dim]
@@ -406,6 +417,7 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
                  learning_rate: float = 1e-4,
                  weight_decay: float = 0.01,
                  project_name: str = "solo-transcriber",
+                 experiment_name: str = "default",
                  rhythm_loss_weight: float = 1.0,
                  teacher_forcing: bool = False):
         """
@@ -438,8 +450,13 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
         self.rhythm_criterion = nn.CrossEntropyLoss()
         
         # Initialize wandb
+        if experiment_name == "default":
+            name = f'{project_name}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}'
+        else:
+            name = experiment_name
         self.wandb_logger = WandbLogger(
             project=project_name,
+            name=name,
             log_model=True
         )
         
@@ -518,58 +535,61 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
         else:
             raise NotImplementedError("don't know what to do here -- without teacher forcing we don't have ground truth")
         
-        structured_predictions = self._generate_structured_predictions(bin_logits, rhythm_logits)
+        if mode == 'test':
+            structured_predictions = self._generate_structured_predictions(bin_logits, rhythm_logits)
 
-        # Compute token-level accuracy
-        token_accuracy = (structured_predictions == targets).float().mean()
-        
-        # Compute voiced bin detection accuracy
-        voiced_bin_accuracy = self._compute_voiced_bin_accuracy(structured_predictions, targets)
+            # Compute token-level accuracy
+            token_accuracy = (structured_predictions == targets).float().mean()
+            
+            # Compute voiced bin detection accuracy
+            voiced_bin_accuracy = self._compute_voiced_bin_accuracy(structured_predictions, targets)
 
-        # Compute onset precision, recall, and f1
-        onset_precision = self._compute_onset_precision(structured_predictions, targets)
-        onset_recall = self._compute_onset_recall(structured_predictions, targets)
-        onset_f1 = self._compute_onset_f1(structured_predictions, targets)
-        special_pitch_accuracy = self._compute_special_pitch_accuracy(structured_predictions, targets)
-        
-        # Compute rhythm accuracy from bin predictions
-        pred_tokens = structured_predictions.view(batch_size, num_bars, seq_len)
-        true_tokens = targets.view(batch_size, num_bars, seq_len)
-        #rhythm_accuracy = self._compute_bare_rhythm_accuracy(pred_tokens, rhythm_targets)
-        
-        # Compute pianoroll-level accuracy
-        pred_pianoroll = self._tokens_to_pianoroll(pred_tokens)
-        true_pianoroll = self._tokens_to_pianoroll(true_tokens)
-        pianoroll_accuracy = self._compute_pianoroll_accuracy(pred_pianoroll, true_pianoroll)
-        
-        # Compute rhythm accuracy from rhythm predictions
-        rhythm_predictions = torch.argmax(rhythm_logits, dim=-1)
-        pred_rhythm_tokens = rhythm_predictions.view(batch_size, num_bars, rhythm_seq_len)
-        true_rhythm_tokens = rhythm_targets.view(batch_size, num_bars, rhythm_seq_len)
-        rhythm_accuracy_from_rhythm_predictions = (pred_rhythm_tokens == true_rhythm_tokens).float().mean()
+            # Compute onset precision, recall, and f1
+            onset_precision = self._compute_onset_precision(structured_predictions, targets)
+            onset_recall = self._compute_onset_recall(structured_predictions, targets)
+            onset_f1 = self._compute_onset_f1(structured_predictions, targets)
+            special_pitch_accuracy = self._compute_special_pitch_accuracy(structured_predictions, targets)
+            
+            # Compute rhythm accuracy from bin predictions
+            pred_tokens = structured_predictions.view(batch_size, num_bars, seq_len)
+            true_tokens = targets.view(batch_size, num_bars, seq_len)
+            #rhythm_accuracy = self._compute_bare_rhythm_accuracy(pred_tokens, rhythm_targets)
+            
+            # Compute pianoroll-level accuracy
+            pred_pianoroll = self._tokens_to_pianoroll(pred_tokens)
+            true_pianoroll = self._tokens_to_pianoroll(true_tokens)
+            pianoroll_accuracy = self._compute_pianoroll_accuracy(pred_pianoroll, true_pianoroll)
+            
+            # Compute rhythm accuracy from rhythm predictions
+            rhythm_predictions = torch.argmax(rhythm_logits, dim=-1)
+            pred_rhythm_tokens = rhythm_predictions.view(batch_size, num_bars, rhythm_seq_len)
+            true_rhythm_tokens = rhythm_targets.view(batch_size, num_bars, rhythm_seq_len)
+            rhythm_accuracy_from_rhythm_predictions = (pred_rhythm_tokens == true_rhythm_tokens).float().mean()
 
-        # Log metrics
-        if mode == 'train':
-            onstep = True
+            # Log metrics
+            if mode == 'train':
+                onstep = True
+            else:
+                onstep = False
+            self.log(f'{mode}_loss', loss, on_step=onstep, on_epoch=True, prog_bar=True)
+            self.log(f'{mode}_loss_pitch', loss_pitch, on_step=onstep, on_epoch=True, prog_bar=True)
+            self.log(f'{mode}_loss_rhythm', loss_rhythm, on_step=onstep, on_epoch=True, prog_bar=True)
+            self.log(f'{mode}_token_accuracy', token_accuracy, on_step=onstep, on_epoch=True, prog_bar=True)
+            self.log(f'{mode}_voiced_bin_accuracy', voiced_bin_accuracy, on_step=onstep, on_epoch=True, prog_bar=True)
+            #self.log(f'{mode}_rhythm_accuracy', rhythm_accuracy, on_step=onstep, on_epoch=True, prog_bar=True)
+            self.log(f'{mode}_pianoroll_accuracy', pianoroll_accuracy, on_step=onstep, on_epoch=True, prog_bar=True)
+            self.log(f'{mode}_rhythm_accuracy_new', rhythm_accuracy_from_rhythm_predictions, on_step=onstep, on_epoch=True, prog_bar=True)
+            self.log(f'{mode}_onset_precision', onset_precision, on_step=onstep, on_epoch=True, prog_bar=True)
+            self.log(f'{mode}_onset_recall', onset_recall, on_step=onstep, on_epoch=True, prog_bar=True)
+            self.log(f'{mode}_onset_f1', onset_f1, on_step=onstep, on_epoch=True, prog_bar=True)
+            self.log(f'{mode}_special_pitch_accuracy', special_pitch_accuracy, on_step=onstep, on_epoch=True, prog_bar=True)
+
+            # Log learning rate
+            # self.log('learning_rate', self.trainer.optimizers[0].param_groups[0]['lr'])
         else:
-            onstep = False
-        self.log(f'{mode}_loss', loss, on_step=onstep, on_epoch=True, prog_bar=True)
-        self.log(f'{mode}_loss_pitch', loss_pitch, on_step=onstep, on_epoch=True, prog_bar=True)
-        self.log(f'{mode}_loss_rhythm', loss_rhythm, on_step=onstep, on_epoch=True, prog_bar=True)
-        self.log(f'{mode}_token_accuracy', token_accuracy, on_step=onstep, on_epoch=True, prog_bar=True)
-        self.log(f'{mode}_voiced_bin_accuracy', voiced_bin_accuracy, on_step=onstep, on_epoch=True, prog_bar=True)
-        #self.log(f'{mode}_rhythm_accuracy', rhythm_accuracy, on_step=onstep, on_epoch=True, prog_bar=True)
-        self.log(f'{mode}_pianoroll_accuracy', pianoroll_accuracy, on_step=onstep, on_epoch=True, prog_bar=True)
-        self.log(f'{mode}_rhythm_accuracy_new', rhythm_accuracy_from_rhythm_predictions, on_step=onstep, on_epoch=True, prog_bar=True)
-        self.log(f'{mode}_onset_precision', onset_precision, on_step=onstep, on_epoch=True, prog_bar=True)
-        self.log(f'{mode}_onset_recall', onset_recall, on_step=onstep, on_epoch=True, prog_bar=True)
-        self.log(f'{mode}_onset_f1', onset_f1, on_step=onstep, on_epoch=True, prog_bar=True)
-        self.log(f'{mode}_special_pitch_accuracy', special_pitch_accuracy, on_step=onstep, on_epoch=True, prog_bar=True)
-
-        # Log learning rate
-        # self.log('learning_rate', self.trainer.optimizers[0].param_groups[0]['lr'])
-        
-        
+            self.log(f'{mode}_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{mode}_loss_pitch', loss_pitch, on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{mode}_loss_rhythm', loss_rhythm, on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
 
@@ -578,6 +598,9 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
         
     def validation_step(self, batch: Dict[str, Dict[str, torch.Tensor]], batch_idx: int) -> torch.Tensor:
         return self.generic_step(batch, batch_idx, 'val')
+    
+    def test_step(self, batch: Dict[str, Dict[str, torch.Tensor]], batch_idx: int) -> torch.Tensor:
+        return self.generic_step(batch, batch_idx, 'test')
         
     def configure_optimizers(self) -> torch.optim.Optimizer:
         optimizer = torch.optim.AdamW(

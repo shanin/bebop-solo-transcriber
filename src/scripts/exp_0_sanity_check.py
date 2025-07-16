@@ -8,14 +8,17 @@ import argparse
 
 def main(args):
     filosax_train = FilosaxDataset(data_dir=args.filosax_dir, split = 'train', source = 'original')
+    filosax_train.hard_transpose = 0
     filosax_train_segments = SegmentDataset(filosax_train, num_consecutive_bars = 8, random_transposition = args.transpose_augmentation)
     filosax_train_loader = DataLoader(filosax_train_segments, batch_size=512, shuffle=True, num_workers=4, pin_memory=True)
 
     filosax_val = FilosaxDataset(data_dir=args.filosax_dir, split = 'val', source = 'original')
+    filosax_val.hard_transpose = 0
     filosax_val_segments = SegmentDataset(filosax_val, num_consecutive_bars = 8, random_transposition = False)
     filosax_val_loader = DataLoader(filosax_val_segments, batch_size=512, shuffle=False, num_workers=0)
 
     filosax_test = FilosaxDataset(data_dir=args.filosax_dir, split = 'test', source = 'original')
+    filosax_test.hard_transpose = 0
     filosax_test_segments = SegmentDataset(filosax_test, num_consecutive_bars = 8, random_transposition = False)
     filosax_test_loader = DataLoader(filosax_test_segments, batch_size=512, shuffle=False, num_workers=0)
 

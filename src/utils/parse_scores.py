@@ -131,12 +131,31 @@ def parse_omnibook_syncpoints(path = '../omnibook_stages/raw/CharlieParkerAligne
     syncpoints = pd.DataFrame(syncpoints)
     return syncpoints
 
+def parse_annotations_file(path, file, participant, song):
+    syncpoints = []
+    with open(os.path.join(path, file), 'r') as f:
+        data = json.load(f)
+    beat_annotations = [x for x in data['annotations'] if x['namespace'] == 'beat']
+    assert len(beat_annotations) == 1, f'{file} has {len(beat_annotations)} beat annotations'
+    downbeats = [x['time'] for x in beat_annotations[0]['data'] if x['value'] == 1]
+    for i, syncpoint in enumerate(downbeats[1:]):
+        syncpoints.append({
+            'participant': participant,
+            'song': song,
+            'bar_num': i,
+            'syncpoint': syncpoint,
+            'flag1': np.nan,
+            'flag2': np.nan,
+        })
+    return syncpoints
+
 def parse_filosax_syncpoints(path = '../stages/0_copy_scores'):
     syncpoints = []
     for participant in range(1, 6):
         for song in range(1, 49):
-            song_name = f'FS{participant}_{song:02d}.Sax-predicted-syncpoints.json'
-            syncpoints.extend(parse_syncpoint_file(path, song_name, participant, song))
+            #song_name = f'FS{participant}_{song:02d}.Sax-predicted-syncpoints.json'
+            song_name = f'FS_{song:02d}.annotations.jams'
+            syncpoints.extend(parse_annotations_file(path, song_name, participant, song))
     syncpoints = pd.DataFrame(syncpoints)
     return syncpoints
 
@@ -170,7 +189,7 @@ if __name__ == '__main__':
                        help='Path to Omnibook syncpoints files')
     parser.add_argument('--filosax-path', type=str, default='stages/0_raw/filosax_scores',
                        help='Path to Filosax scores')
-    parser.add_argument('--filosax-syncpoints-path', type=str, default='stages/0_raw/filosax_scores',
+    parser.add_argument('--filosax-annotations-path', type=str, default='stages/0_raw/filosax_scores',
                        help='Path to Filosax syncpoints files')
     
     args = parser.parse_args()
@@ -188,14 +207,14 @@ if __name__ == '__main__':
     filosax_scores = parse_filosax_scores(args.filosax_path)
     filosax_scores = add_note_onsets_and_durations(filosax_scores)
     filosax_scores = encode_measures(filosax_scores)
-    filosax_syncpoints = parse_filosax_syncpoints(args.filosax_path)
+    filosax_syncpoints = parse_filosax_syncpoints(args.filosax_annotations_path)
     filosax_scores = pd.merge(filosax_scores, filosax_syncpoints, on=['participant', 'song', 'bar_num'], how='outer')
     
     final_scores = pd.concat([omnibook_scores, filosax_scores])
     
     print(f"Saving {len(final_scores)} records to {args.output}")
 
-    #final_scores.to_csv(args.output, index=False)
+    #final_scores.to_json(args.output, orient='records', lines=True)
     pickle.dump(final_scores, open(args.output, 'wb'))
 
     print("Processing complete!")

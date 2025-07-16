@@ -6,14 +6,36 @@ import os
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, choices=['filosax', 'uvr_filosax', 'omnibook', 'all'], default='all')
-    parser.add_argument('--filosax_path', type=str, required=True)
-    parser.add_argument('--uvr_filosax_path', type=str, required=True)
-    parser.add_argument('--omnibook_path', type=str, required=True)
+    parser.add_argument('--dataset', type=str, choices=['filosax', 'uvr_filosax', 'omnibook', 'all', 'inference'], default='all')
+    parser.add_argument('--filosax_path', type=str)
+    parser.add_argument('--uvr_filosax_path', type=str)
+    parser.add_argument('--omnibook_path', type=str)
     parser.add_argument('--output_dir', type=str, required=True)
+    parser.add_argument('--data_path', type=str)
     args = parser.parse_args()
 
+    if args.dataset == 'inference':
+        assert args.data_path is not None, 'data_path is required'
+        lines = []
+        files = os.listdir(args.data_path)
+        for file in files:
+            if file.endswith('.wav'):
+                id_ = file.split('.')[0]
+                lines.append({
+                    'example_id': id_,
+                    'dataset': 'inference',
+                    'clean_solo': f'{args.data_path}/{file}',
+                    'backing_pd': np.nan,
+                    'backing_bd': np.nan,
+                    'mix_path': np.nan,
+                })
+        df = pd.DataFrame(lines)
+        if not os.path.exists(args.output_dir):
+            os.makedirs(args.output_dir)
+        df.to_csv(f'{args.output_dir}/index_inference.csv', index=False)
+
     if args.dataset in ['filosax', 'all']:
+        assert args.filosax_path is not None, 'filosax_path is required'
         lines = []
         # Filosax
         for participant in range(1, 6):
@@ -33,6 +55,7 @@ if __name__ == '__main__':
         df.to_csv(f'{args.output_dir}/index_filosax.csv', index=False)
 
     if args.dataset in ['uvr_filosax', 'all']:
+        assert args.uvr_filosax_path is not None, 'uvr_filosax_path is required'
         suffix = '_(Woodwinds)_17_HP-Wind_Inst-UVR.wav'
         for relative_sax_loudness in [2, 5, 8]:
             lines = []
@@ -53,6 +76,7 @@ if __name__ == '__main__':
             df.to_csv(f'{args.output_dir}/index_uvr_filosax_L{relative_sax_loudness}.csv', index=False)
 
     if args.dataset in ['omnibook', 'all']:
+        assert args.omnibook_path is not None, 'omnibook_path is required'
         lines = []
         for song_file in os.listdir(f'{args.omnibook_path}/audio_stems'):
             if song_file.endswith('.wav'):

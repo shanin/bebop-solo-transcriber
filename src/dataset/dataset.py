@@ -9,28 +9,22 @@ from typing import Iterator, List
 import numpy as np
 from functools import partial
 
-class SoloDataset(Dataset):
-    def __init__(self, data_dir=None, source: str = 'original', split: str = 'all'):
+class TrackDataset(Dataset):
+    def __init__(self, data_dir=None, source: str = 'original', split: str = 'all', hard_transpose: int = 0):
         self.data_dir = data_dir
-        self.rhythm_tokens = RHYTHM_TOKENS
         self.source = source
-        self.all_files = [f for f in sorted(os.listdir(data_dir)) if f.endswith('.json')]
+        self.hard_transpose = hard_transpose
+        self.rhythm_tokens = RHYTHM_TOKENS
+        self.all_files = [f for f in sorted(os.listdir(data_dir)) if f.endswith('.pt')]
         self.split = split
         if self.split != 'all':
             self.prepare_splits()
         self.prepare_file_list()
-        self.load_bars()
 
-    def load_bars(self):
-        self.data = []
-        
-        # Load all data into memory
-        print(f"Loading {len(self.files)} files from {self.data_dir}, mode: {self.source}, split: {self.split}")
-        for file in tqdm(self.files):
-            file_path = os.path.join(self.data_dir, file)
-            with open(file_path, 'r') as f:
-                bars = json.load(f)
-            self.data.extend(bars)
+    def process_annotations(self, data):
+        data['scalar_features'] = torch.nan_to_num(data['scalar_features'], nan=0.0, posinf=1.0, neginf=0.0)
+        data['activations'] = torch.nan_to_num(data['activations'], nan=0.0, posinf=1.0, neginf=0.0)
+        return data
 
     def prepare_file_list(self):
         if self.split == 'train':
@@ -43,248 +37,142 @@ class SoloDataset(Dataset):
             self.files = self.all_files
         else:
             assert False, f"Invalid split: {self.split}"
-        
-    def generate_rhythm_token(self, signature):
-        if signature in self.rhythm_tokens:
-            return self.rhythm_tokens[signature]['id']
-        elif 'x' in signature:
-            return 42 # too fast rhythm
-        else:
-            return 43 # too rare rhythm
-        
-    def generate_inferred_time_feel(self, signature):
-        if signature in self.rhythm_tokens:
-            if self.rhythm_tokens[signature]['feel'] == 'swing':
-                return 0
-            elif self.rhythm_tokens[signature]['feel'] == 'double_time':
-                return 1
-            else:
-                assert False
-        elif 'x' in signature:
-            return 1
-        else:
-            return 1 # too rare rhythm 
-
-    def generate_mask(self, signature):
-        mask = torch.zeros(12, dtype=torch.int64)
-        for index, x in enumerate(signature):
-            if x == 'o':
-                mask[index] = 0
-            elif x == 'r':
-                mask[index] = 1
-            elif x == 't':
-                mask[index] = 2
-            elif x == 'x':
-                mask[index] = 3
-            else:
-                assert False
-        return mask
 
     def __len__(self):
-        return len(self.data)
-    
-    def fix_tokens(self, tokens: torch.Tensor):
-        # due to a preprocessing bug there is a meaningless token 128
-        tokens[tokens == 129] = 128 # tie token
-        tokens[tokens == 130] = 129 # rest token
-        return tokens
+        return len(self.files)
+
+    def perform_hard_transposition(self, data):
+        if self.hard_transpose != 0:
+            pitch_mask = (data['tokens'] < 128)
+            data['tokens'][pitch_mask] += self.hard_transpose
+        return data
 
     def __getitem__(self, idx):
-        bar = self.data[idx]
-        flux = torch.tensor(bar['features']['flux']).view(48)
-        confidence = torch.tensor(bar['features']['confidence']).view(48)
-        amplitude = torch.tensor(bar['features']['amplitude']).view(48)
-        activations = torch.tensor(bar['features']['activations']).view(48, 384)
-        
-        # Filter out NaN values in features
-        flux = torch.nan_to_num(flux, nan=0.0, posinf=1.0, neginf=0.0)
-        confidence = torch.nan_to_num(confidence, nan=0.0, posinf=1.0, neginf=0.0)
-        amplitude = torch.nan_to_num(amplitude, nan=0.0, posinf=1.0, neginf=0.0)
-        
-        # Filter out NaN values in activations
-        activations = torch.nan_to_num(activations, nan=0.0, posinf=1.0, neginf=0.0)
-        
-        features = torch.stack([flux, confidence, amplitude], dim = -1)
-
-        tokens = torch.concatenate([
-            torch.tensor(bar['annotation'][0]['beatwise_score']),
-            torch.tensor(bar['annotation'][1]['beatwise_score']),
-            torch.tensor(bar['annotation'][2]['beatwise_score']),
-            torch.tensor(bar['annotation'][3]['beatwise_score']),
-        ])
-        tokens = self.fix_tokens(tokens)
-
-        mask = torch.concatenate([
-            self.generate_mask(bar['annotation'][0]['rhythm_signature']),
-            self.generate_mask(bar['annotation'][1]['rhythm_signature']),
-            self.generate_mask(bar['annotation'][2]['rhythm_signature']),
-            self.generate_mask(bar['annotation'][3]['rhythm_signature']),
-        ])
-
-        rhythm_tokens = torch.tensor([
-            self.generate_rhythm_token(bar['annotation'][0]['rhythm_signature']),
-            self.generate_rhythm_token(bar['annotation'][1]['rhythm_signature']),
-            self.generate_rhythm_token(bar['annotation'][2]['rhythm_signature']),
-            self.generate_rhythm_token(bar['annotation'][3]['rhythm_signature']),
-        ])
-
-        inferred_time_feel = torch.tensor([
-            self.generate_inferred_time_feel(bar['annotation'][0]['rhythm_signature']),
-            self.generate_inferred_time_feel(bar['annotation'][1]['rhythm_signature']),
-            self.generate_inferred_time_feel(bar['annotation'][2]['rhythm_signature']),
-            self.generate_inferred_time_feel(bar['annotation'][3]['rhythm_signature']),
-        ])
-
-        source_time_feel = torch.tensor(self.source != 'original', dtype=torch.int64)
-
-
-        return {
-            'features': features,
-            'activations': activations,
-            'tokens': tokens,
-            'mask': mask,
-            'rhythm_tokens': rhythm_tokens,
-            'inferred_time_feel': inferred_time_feel,
-            'source_time_feel': source_time_feel,
-        }
+        file_path = os.path.join(self.data_dir, self.files[idx])
+        data = torch.load(file_path)
+        data = self.process_annotations(data)
+        data = self.perform_hard_transposition(data)
+        return data
     
 
-class OmnibookDataset(SoloDataset):
+class OmnibookDataset(TrackDataset):
+    def __init__(self, data_dir=None, source: str = 'original', split: str = 'all'):
+        super().__init__(data_dir, source, split)
+        self.instrument = 'alto'
+
     def prepare_splits(self):
         self.test_files = [
-            'OB_1p64c.original.json', 'OB_S5VYc.original.json', 'OB_wkTyc.original.json',
+            'OB_1p64c.original.pt', 'OB_S5VYc.original.pt', 'OB_wkTyc.original.pt',
         ]
         self.val_files = [
-            'OB_Nqn4c.original.json', 'OB_6Cbwc.original.json'
+            'OB_Nqn4c.original.pt', 'OB_6Cbwc.original.pt'
         ]
         self.train_files = [f for f in self.all_files if f not in self.test_files and f not in self.val_files]
 
 
-class FilosaxDataset(SoloDataset):
+class FilosaxDataset(TrackDataset):
+    def __init__(self, data_dir=None, source: str = 'original', split: str = 'all'):
+        super().__init__(data_dir, source, split)
+        self.instrument = 'tenor'
+        self.hard_transpose = -14
+
     def prepare_splits(self):
-        self.test_files = [f'FS{i}_46.{self.source}.json' for i in range(1, 6)] + \
-                    [f'FS{i}_47.{self.source}.json' for i in range(1, 6)] + \
-                    [f'FS{i}_48.{self.source}.json' for i in range(1, 6)]
-        self.val_files = [f'FS{i}_45.{self.source}.json' for i in range(1, 6)]
-        self.train_files = [f for f in self.all_files if f not in self.test_files and f not in self.val_files and f.endswith(f'.{self.source}.json')]
+        self.test_files = [f'FS{i}_46.{self.source}.pt' for i in range(1, 6)] + \
+                    [f'FS{i}_47.{self.source}.pt' for i in range(1, 6)] + \
+                    [f'FS{i}_48.{self.source}.pt' for i in range(1, 6)]
+        self.val_files = [f'FS{i}_45.{self.source}.pt' for i in range(1, 6)]
+        self.train_files = [f for f in self.all_files if f not in self.test_files and f not in self.val_files and f.endswith(f'.{self.source}.pt')]
 
-class ConsecutiveBarSampler(Sampler):
-    def __init__(self, dataset, num_consecutive_bars: int, batch_size: int, inference: bool = False):
+class SegmentDataset(Dataset):
+    def __init__(self, dataset, num_consecutive_bars: int, random_transposition: bool = False, use_cache: bool = True):
         self.dataset = dataset
+        self.mode = dataset.instrument
         self.num_consecutive_bars = num_consecutive_bars
-        self.batch_size = batch_size
-        self.inference = inference
-        
-        if self.inference:
-            self.starts = np.arange(len(self.dataset) - self.num_consecutive_bars + 1)[::self.num_consecutive_bars]
-        else:
-            self.starts = np.arange(len(self.dataset) - self.num_consecutive_bars + 1)
+        self.random_transposition = random_transposition
+        self.index = []
+        self.cache = {}
+        self.use_cache = use_cache
+        for track_idx, track in enumerate(self.dataset):
+            num_bars = track['tokens'].shape[0]
+            for i in range(0, num_bars - self.num_consecutive_bars + 1):
+                self.index.append((track_idx, i))
+            if self.use_cache:
+                self.cache[track_idx] = track
     
-    def __iter__(self) -> Iterator[List[int]]:
-        # Shuffle sequences
-        if not self.inference:
-            np.random.shuffle(self.starts)
-        
-        # Yield batches of sequences
-        for i in range(0, len(self.starts), self.batch_size):
-            batch_starts = self.starts[i:i + self.batch_size]
-            # Flatten the batch sequences into a single list
-            yield [idx for start in batch_starts for idx in range(start, start + self.num_consecutive_bars)]
+    def __len__(self):
+        return len(self.index)
     
-    def __len__(self) -> int:
-        return (len(self.starts) + self.batch_size - 1) // self.batch_size
-    
-def collate_fn(batch, num_consecutive_bars, random_transposition: bool = False, mode: str = 'tenor'):
-    # Calculate actual batch size from the input
-    actual_batch_size = len(batch) // num_consecutive_bars
-
-    # Stack features
-    features = torch.stack([item['features'] for item in batch]).view(actual_batch_size, num_consecutive_bars, 48, 3)
-    
-    # Stack activations
-    activations = torch.stack([item['activations'] for item in batch]).view(actual_batch_size, num_consecutive_bars, 48, 384)
-    
-    # Additional NaN filtering at batch level
-    features = torch.nan_to_num(features, nan=0.0, posinf=1.0, neginf=0.0)
-    activations = torch.nan_to_num(activations, nan=0.0, posinf=1.0, neginf=0.0)
-    
-    # Stack tokens
-    tokens = torch.stack([item['tokens'] for item in batch]).view(actual_batch_size, num_consecutive_bars, 48)
-    mask = torch.stack([item['mask'] for item in batch]).view(actual_batch_size, num_consecutive_bars, 48)
-    inferred_time_feel = torch.stack([item['inferred_time_feel'] for item in batch]).view(actual_batch_size, num_consecutive_bars, 4)
-    source_time_feel = torch.stack([item['source_time_feel'] for item in batch]).view(actual_batch_size, num_consecutive_bars, 1)
-    
-    # Convert rhythm tokens to tensors and stack
-    rhythm_tokens = torch.stack([item['rhythm_tokens'] for item in batch]).view(actual_batch_size, num_consecutive_bars, 4)
-    
-    if random_transposition:
-        if mode == 'tenor':
+    def transposition(self, segment):
+        if self.mode == 'tenor':
             min_shift = -3
             max_shift = 9
-        elif mode == 'alto':
+        elif self.mode == 'alto':
             min_shift = -8
             max_shift = 4
+        pitch_mask = (segment['y']['tokens'] < 128)
+        if pitch_mask.any():
+            min_pitch = segment['y']['tokens'][pitch_mask].min().item()
+            max_pitch = segment['y']['tokens'][pitch_mask].max().item()
+            min_shift = max(min_shift, - min_pitch)
+            max_shift = min(max_shift, 127 - max_pitch)
+            shift = np.random.randint(min_shift, max_shift + 1)
+            # Apply shift only to pitch tokens
+            pitch_tokens = segment['y']['tokens'][pitch_mask]
+            segment['y']['tokens'][pitch_mask] = pitch_tokens + shift
+            segment['x']['activations'] = torch.roll(segment['x']['activations'], shifts=shift*3, dims=-1)
+        return segment
+
+    def __getitem__(self, idx):
+        track_idx, bar_idx = self.index[idx]
+        if self.use_cache:
+            if track_idx not in self.cache:
+                self.cache[track_idx] = self.dataset[track_idx]
+            track = self.cache[track_idx]
         else:
-            raise ValueError(f"Invalid mode: {mode}")
-        for i in range(actual_batch_size):
-            # Get all pitch tokens (0-127) for this batch item
-            pitch_mask = (tokens[i] < 128)
-            if pitch_mask.any():
-                min_pitch = tokens[i][pitch_mask].min().item()
-                max_pitch = tokens[i][pitch_mask].max().item()
-                min_shift = max(min_shift, - min_pitch)
-                max_shift = min(max_shift, 127 - max_pitch)
-                shift = np.random.randint(min_shift, max_shift + 1)
-                # Apply shift only to pitch tokens
-                pitch_tokens = tokens[i][pitch_mask]
-                tokens[i][pitch_mask] = pitch_tokens + shift
-                activations[i] = torch.roll(activations[i], shifts=shift*3, dims=-1)
-
-    return {
-        'x': {
-            'features': features,
-            'activations': activations,
-            'bar_num': torch.arange(num_consecutive_bars).unsqueeze(0).expand(actual_batch_size, -1)
-        },
-        'y': {
-            'tokens': tokens,
-            'rhythm_tokens': rhythm_tokens,
-            'mask': mask,
-            'inferred_time_feel': inferred_time_feel,
-            'source_time_feel': source_time_feel
+            track = self.dataset[track_idx]
+        segment = {
+            'x': {
+                'activations': track['activations'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
+                'features': track['scalar_features'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
+            },
+            'y': {
+                'tokens': track['tokens'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
+                'rhythm_tokens': track['rhythm_tokens'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
+                'mask': track['mask'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
+                'inferred_time_feel': track['inferred_time_feel'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
+                'source_time_feel': track['source_time_feel'].clone(),
+            },
         }
-    }
+        if self.random_transposition:
+            segment = self.transposition(segment)
 
-def dataloader_generator(dataset,  
-                        num_consecutive_bars: int,
-                        random_transposition: bool = False,
-                        inference: bool = False,
-                        batch_size: int = 32,
-                        num_workers: int = 4,
-                        mode: str = 'tenor') -> torch.utils.data.DataLoader:
-    """
-    Creates a DataLoader that samples consecutive bars.
+        return segment
     
-    Args:
-        dataset: The dataset to create a loader for
-        num_consecutive_bars: Number of consecutive bars to sample
-        batch_size: Number of sequences per batch
-        shuffle: Whether to shuffle the sequences
+class InferenceDataset(Dataset):
+    def __init__(self, track, num_consecutive_bars: int):
+        self.track = track
+        self.num_consecutive_bars = num_consecutive_bars
+        self.num_bars = self.track['scalar_features'].shape[0]
+        self.full_segments = self.num_bars // self.num_consecutive_bars
+        self.last_segment = self.num_bars % self.num_consecutive_bars
+        self.num_segments = self.full_segments + (1 if self.last_segment > 0 else 0) # 1 if there is a last segment
     
-    Returns:
-        DataLoader that yields batches of consecutive bars
-    """
-    if not inference:
-        sampler = ConsecutiveBarSampler(dataset, num_consecutive_bars=num_consecutive_bars, batch_size=batch_size, inference=inference)
-        collate_local_fn = partial(
-            collate_fn, 
-            num_consecutive_bars=num_consecutive_bars,
-            random_transposition=random_transposition,
-            mode=mode,
-        )
-        return torch.utils.data.DataLoader(
-            dataset,
-            batch_sampler=sampler,
-            num_workers=num_workers,
-            collate_fn=collate_local_fn,
-        )
+    def __len__(self):
+        return self.num_segments
+
+    def __getitem__(self, idx):
+        if idx >= self.num_segments:
+            raise IndexError(f"Index {idx} is out of range for dataset with {self.num_segments} segments")
+        if idx < self.full_segments:
+            bar_idx = idx * self.num_consecutive_bars
+        else:
+            bar_idx = self.full_segments * self.num_consecutive_bars
+            bar_idx -= (self.num_consecutive_bars - self.last_segment)
+
+        segment = {
+            'x': {
+                'activations': self.track['activations'][bar_idx:bar_idx + self.num_consecutive_bars],
+                'features': self.track['scalar_features'][bar_idx:bar_idx + self.num_consecutive_bars],
+            },
+        }
+        return segment
