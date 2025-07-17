@@ -15,10 +15,20 @@ def main(args):
     filosax_hard = args.filosax_dir.replace('filosax', 'uvr_filosax_L2')
 
     filosax_train_easy = FilosaxDataset(data_dir=filosax_easy, split = 'train', source = 'original')
-    filosax_train_segments_easy = SegmentDataset(filosax_train_easy, num_consecutive_bars = 8, random_transposition = args.transpose_augmentation)
+    filosax_train_segments_easy = SegmentDataset(
+        filosax_train_easy, 
+        num_consecutive_bars = 8, 
+        random_transposition = args.transpose_augmentation, 
+        pitch_shift = args.pitch_shift
+    )
 
     filosax_train_med = FilosaxDataset(data_dir=filosax_med, split = 'train', source = 'original')
-    filosax_train_segments_med = SegmentDataset(filosax_train_med, num_consecutive_bars = 8, random_transposition = args.transpose_augmentation)
+    filosax_train_segments_med = SegmentDataset(
+        filosax_train_med, 
+        num_consecutive_bars = 8, 
+        random_transposition = args.transpose_augmentation, 
+        pitch_shift = args.pitch_shift
+    )
 
     filosax_val_med = FilosaxDataset(data_dir=filosax_med, split = 'val', source = 'original')
     filosax_val_segments_med = SegmentDataset(filosax_val_med, num_consecutive_bars = 8, random_transposition = False)
@@ -100,5 +110,6 @@ if __name__ == "__main__":
     parser.add_argument("--filosax_dir", type=str, required=True)
     parser.add_argument("--transpose_augmentation", type=bool, default=True)
     parser.add_argument("--starting_checkpoint", type=str, default=None)
+    parser.add_argument("--pitch_shift", type=bool, default=False)
     args = parser.parse_args()
     main(args)

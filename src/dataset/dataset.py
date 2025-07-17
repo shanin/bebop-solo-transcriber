@@ -84,11 +84,20 @@ class FilosaxDataset(TrackDataset):
         self.train_files = [f for f in self.all_files if f not in self.test_files and f not in self.val_files and f.endswith(f'.{self.source}.pt')]
 
 class SegmentDataset(Dataset):
-    def __init__(self, dataset, num_consecutive_bars: int, random_transposition: bool = False, use_cache: bool = True):
+    def __init__(self, dataset, num_consecutive_bars: int, random_transposition: bool = False, use_cache: bool = True, pitch_shift: bool = False):
+        """
+        Args:
+            dataset: TrackDataset object
+            num_consecutive_bars: int
+            random_transposition: bool
+            use_cache: bool
+            pitch_shift: bool - if True, the pitch of the segment is shifted by -1, 0 or 1 bin (1 semitone = 3 bins)
+        """
         self.dataset = dataset
         self.mode = dataset.instrument
         self.num_consecutive_bars = num_consecutive_bars
         self.random_transposition = random_transposition
+        self.pitch_shift = pitch_shift
         self.index = []
         self.cache = {}
         self.use_cache = use_cache
@@ -121,6 +130,11 @@ class SegmentDataset(Dataset):
             segment['y']['tokens'][pitch_mask] = pitch_tokens + shift
             segment['x']['activations'] = torch.roll(segment['x']['activations'], shifts=shift*3, dims=-1)
         return segment
+    
+    def apply_pitch_shift(self, segment):
+        shift = np.random.randint(-1, 2)
+        segment['x']['activations'] = torch.roll(segment['x']['activations'], shifts=shift, dims=-1)
+        return segment
 
     def __getitem__(self, idx):
         track_idx, bar_idx = self.index[idx]
@@ -145,7 +159,8 @@ class SegmentDataset(Dataset):
         }
         if self.random_transposition:
             segment = self.transposition(segment)
-
+        if self.pitch_shift:
+            segment = self.apply_pitch_shift(segment)
         return segment
     
 class InferenceDataset(Dataset):
