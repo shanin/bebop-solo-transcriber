@@ -435,13 +435,14 @@ if __name__ == '__main__':
     if args.mode == 'inference':
         combine_inference(args.pesto_folder, args.flux_folder, args.beats_folder, args.output_folder)
         exit()
-    if args.mode == 'wjd':
-        combine_wjd(args.labeled_scores, args.pesto_folder, args.flux_folder, args.output_folder)
-        exit()
 
     with open(args.labeled_scores, 'r') as f:
         labeled_scores = pd.DataFrame(json.load(f))
     labeled_scores = labeled_scores.replace({None: np.nan})
+
+    if args.mode == 'wjd':
+        combine_wjd(labeled_scores, args.pesto_folder, args.flux_folder, args.output_folder)
+        exit()
 
     if args.mode == 'filosax':
         combine_filosax(labeled_scores, args.pesto_folder, args.flux_folder, args.output_folder)
