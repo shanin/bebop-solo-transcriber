@@ -84,7 +84,7 @@ class FilosaxDataset(TrackDataset):
         self.train_files = [f for f in self.all_files if f not in self.test_files and f not in self.val_files and f.endswith(f'.{self.source}.pt')]
 
 class SegmentDataset(Dataset):
-    def __init__(self, dataset, num_consecutive_bars: int, random_transposition: bool = False, use_cache: bool = True, pitch_shift: bool = False):
+    def __init__(self, dataset, num_consecutive_bars: int, random_transposition: bool = False, use_cache: bool = True, pitch_shift: bool = False, disable_rhythm_classifier = False):
         """
         Args:
             dataset: TrackDataset object
@@ -101,6 +101,7 @@ class SegmentDataset(Dataset):
         self.index = []
         self.cache = {}
         self.use_cache = use_cache
+        self.disable_rhythm_classifier = disable_rhythm_classifier
         for track_idx, track in enumerate(self.dataset):
             num_bars = track['tokens'].shape[0]
             for i in range(0, num_bars - self.num_consecutive_bars + 1):
@@ -156,6 +157,9 @@ class SegmentDataset(Dataset):
                 'inferred_time_feel': track['inferred_time_feel'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
                 'source_time_feel': track['source_time_feel'].clone(),
             },
+            'meta': {
+                'disable_rhythm_classifier': self.disable_rhythm_classifier,
+            }
         }
         if self.random_transposition:
             segment = self.transposition(segment)

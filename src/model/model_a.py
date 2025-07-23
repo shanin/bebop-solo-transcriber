@@ -516,6 +516,7 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
     
     def generic_step(self, batch: Dict[str, Dict[str, torch.Tensor]], batch_idx: int, mode: str) -> torch.Tensor:
         x, y = batch['x'], batch['y']
+        meta = batch['meta']
         bin_logits, rhythm_logits = self(x)
          
         # Reshape for loss computation
@@ -528,10 +529,13 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
         mask = y['mask'].view(-1) # [batch*bars*time]
         
         # Compute loss
-        if self.teacher_forcing:
+        if self.teacher_forcing and not meta['disable_rhythm_classifier']:
             loss_pitch = self._rhythm_instructed_loss(bin_logits, targets, mask) 
             loss_rhythm = self.rhythm_criterion(rhythm_logits, rhythm_targets)
             loss = loss_pitch + self.rhythm_loss_weight * loss_rhythm
+        elif self.teacher_forcing and meta['disable_rhythm_classifier']:
+            loss_pitch = self._rhythm_instructed_loss(bin_logits, targets, mask)
+            loss = loss_pitch
         else:
             raise NotImplementedError("don't know what to do here -- without teacher forcing we don't have ground truth")
         
