@@ -328,10 +328,10 @@ def combine_wjd(labeled_scores, pesto_folder, flux_folder, output_folder, prefix
     songs = labeled_scores['song'].unique()
     for song in songs:
 
-        activations = np.load(os.path.join(pesto_folder, f'{prefix}_{song}.activations.npy'))
-        confidence = np.load(os.path.join(pesto_folder, f'{prefix}_{song}.confidence.npy'))
-        amplitude = np.load(os.path.join(pesto_folder, f'{prefix}_{song}.amplitude.npy'))
-        flux = np.load(os.path.join(flux_folder, f'{prefix}_{song}.flux.npy'))[:amplitude.shape[0]]
+        activations = np.load(os.path.join(pesto_folder, f'{prefix}{song:03d}.activations.npy'))
+        confidence = np.load(os.path.join(pesto_folder, f'{prefix}{song:03d}.confidence.npy'))
+        amplitude = np.load(os.path.join(pesto_folder, f'{prefix}{song:03d}.amplitude.npy'))
+        flux = np.load(os.path.join(flux_folder, f'{prefix}{song:03d}.flux.npy'))[:amplitude.shape[0]]
         
         metadata = labeled_scores[labeled_scores['song'] == song]
 
@@ -371,7 +371,7 @@ def combine_wjd(labeled_scores, pesto_folder, flux_folder, output_folder, prefix
         torch_data['source_time_feel'] = torch.tensor(True, dtype=torch.int64)
         torch_data['mask'] = torch.stack([torch.tensor([signature_to_mask(x) for x in bar]) for bar in song_raw_rhythm_signature])
 
-        torch.save(torch_data, os.path.join(output_folder, f'{prefix}_{song:03d}.original.pt'))
+        torch.save(torch_data, os.path.join(output_folder, f'{prefix}{song:03d}.original.pt'))
 
 def prepare_beats(beats):
     syncpoints = beats[:,0]
