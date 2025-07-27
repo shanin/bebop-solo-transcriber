@@ -17,6 +17,7 @@ class TrackDataset(Dataset):
         self.rhythm_tokens = RHYTHM_TOKENS
         self.all_files = [f for f in sorted(os.listdir(data_dir)) if f.endswith('.pt')]
         self.split = split
+        self.instrument = 'none'
         if self.split != 'all':
             self.prepare_splits()
         self.prepare_file_list()
@@ -69,7 +70,6 @@ class OmnibookDataset(TrackDataset):
         ]
         self.train_files = [f for f in self.all_files if f not in self.test_files and f not in self.val_files]
 
-
 class FilosaxDataset(TrackDataset):
     def __init__(self, data_dir=None, source: str = 'original', split: str = 'all'):
         super().__init__(data_dir, source, split)
@@ -119,6 +119,9 @@ class SegmentDataset(Dataset):
         elif self.mode == 'alto':
             min_shift = -8
             max_shift = 4
+        elif self.mode == 'none':
+            min_shift = -3
+            max_shift = 3
         pitch_mask = (segment['y']['tokens'] < 128)
         if pitch_mask.any():
             min_pitch = segment['y']['tokens'][pitch_mask].min().item()
