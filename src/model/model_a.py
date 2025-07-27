@@ -528,12 +528,15 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
         rhythm_targets = y['rhythm_tokens'].view(-1)  # [batch*bars*time]
         mask = y['mask'].view(-1) # [batch*bars*time]
         
+        # Extract boolean value from tensor
+        disable_rhythm_classifier = bool(meta['disable_rhythm_classifier'].item())
+        
         # Compute loss
-        if self.teacher_forcing and not meta['disable_rhythm_classifier']:
+        if self.teacher_forcing and not disable_rhythm_classifier:
             loss_pitch = self._rhythm_instructed_loss(bin_logits, targets, mask) 
             loss_rhythm = self.rhythm_criterion(rhythm_logits, rhythm_targets)
             loss = loss_pitch + self.rhythm_loss_weight * loss_rhythm
-        elif self.teacher_forcing and meta['disable_rhythm_classifier']:
+        elif self.teacher_forcing and disable_rhythm_classifier:
             loss_pitch = self._rhythm_instructed_loss(bin_logits, targets, mask)
             loss = loss_pitch
         else:
