@@ -529,7 +529,7 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
         mask = y['mask'].view(-1) # [batch*bars*time]
         
         # Extract boolean value from tensor
-        disable_rhythm_classifier = bool(meta['disable_rhythm_classifier'].item())
+        disable_rhythm_classifier = bool(meta['disable_rhythm_classifier'][0].item())
         
         # Compute loss
         if self.teacher_forcing and not disable_rhythm_classifier:
