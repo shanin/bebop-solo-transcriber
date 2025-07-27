@@ -580,7 +580,8 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
                 onstep = False
             self.log(f'{mode}_loss', loss, on_step=onstep, on_epoch=True, prog_bar=True)
             self.log(f'{mode}_loss_pitch', loss_pitch, on_step=onstep, on_epoch=True, prog_bar=True)
-            self.log(f'{mode}_loss_rhythm', loss_rhythm, on_step=onstep, on_epoch=True, prog_bar=True)
+            if not disable_rhythm_classifier:
+                self.log(f'{mode}_loss_rhythm', loss_rhythm, on_step=onstep, on_epoch=True, prog_bar=True)
             self.log(f'{mode}_token_accuracy', token_accuracy, on_step=onstep, on_epoch=True, prog_bar=True)
             self.log(f'{mode}_voiced_bin_accuracy', voiced_bin_accuracy, on_step=onstep, on_epoch=True, prog_bar=True)
             #self.log(f'{mode}_rhythm_accuracy', rhythm_accuracy, on_step=onstep, on_epoch=True, prog_bar=True)
@@ -596,7 +597,8 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
         else:
             self.log(f'{mode}_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{mode}_loss_pitch', loss_pitch, on_step=False, on_epoch=True, prog_bar=True)
-            self.log(f'{mode}_loss_rhythm', loss_rhythm, on_step=False, on_epoch=True, prog_bar=True)
+            if not disable_rhythm_classifier:
+                self.log(f'{mode}_loss_rhythm', loss_rhythm, on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
 
