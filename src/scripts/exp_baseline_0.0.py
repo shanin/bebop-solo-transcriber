@@ -25,7 +25,8 @@ def main(args):
         num_layers=4,
         teacher_forcing=True,
         project_name="solo-transcriber",
-        experiment_name = args.experiment_name
+        experiment_name = args.experiment_name,
+        rhythm_loss_weight = args.rhythm_loss_weight
     )
 
     early_stop_callback = EarlyStopping(
@@ -63,5 +64,6 @@ if __name__ == "__main__":
     parser.add_argument("--experiment_name", type=str, default="default")
     parser.add_argument("--filosax_dir", type=str, required=True)
     parser.add_argument("--transpose_augmentation", type=bool, default=True)
+    parser.add_argument("--rhythm_loss_weight", type=float, default=0.0)
     args = parser.parse_args()
     main(args)
