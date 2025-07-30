@@ -236,26 +236,25 @@ class JointPitchRhythmTransformerEncoder(nn.Module):
         # Get feature embeddings
         embeddings, rhythm = self.feature_encoder(x)  # [batch, bars, time, embedding_dim]
         
-        # Reshape for transformer (combine batch and bars dimensions)
+        # Reshape for transformer (combine bars and time dimensions, keep batch separate)
         batch_size, num_bars, seq_len, _ = embeddings.shape
-        embeddings = embeddings.view(batch_size * num_bars, seq_len, -1)  # [batch*bars, time, embedding_dim]
+        embeddings = embeddings.view(batch_size, num_bars * seq_len, -1)  # [batch, bars*time, embedding_dim]
 
         batch_size, num_bars, rhythm_seq_len, _ = rhythm.shape
-        rhythm = rhythm.view(batch_size * num_bars, rhythm_seq_len, -1)  # [batch*bars, time, embedding_dim]
+        rhythm = rhythm.view(batch_size, num_bars * rhythm_seq_len, -1)  # [batch, bars*beats, embedding_dim]
         
-        # Concatenate embeddings and rhythm
-        seq_len = embeddings.shape[-2]
-        encoded_sequence = torch.cat([embeddings, rhythm], dim=-2)  # [batch*bars, time + beats, embedding_dim]
+        # Concatenate embeddings and rhythm along time dimension
+        encoded_sequence = torch.cat([embeddings, rhythm], dim=-2)  # [batch, bars*time + bars*beats, embedding_dim]
 
         # Create attention mask (all positions can attend to all other positions)
         mask = None
         
         # Apply transformer
-        encoded = self.transformer(encoded_sequence, mask)  # [batch*bars, time, embedding_dim]
+        encoded = self.transformer(encoded_sequence, mask)  # [batch, bars*time + bars*beats, embedding_dim]
         
         # Split logits into bin and rhythm
-        bin_logits = self.bin_output_projection(encoded[:, :seq_len, :])  # [batch*bars, time, num_classes]
-        rhythm_logits = self.rhythm_output_projection(encoded[:, seq_len:, :])  # [batch*bars, time, num_classes]
+        bin_logits = self.bin_output_projection(encoded[:, :embeddings.shape[1], :])  # [batch, bars*time, num_classes]
+        rhythm_logits = self.rhythm_output_projection(encoded[:, embeddings.shape[1]:, :])  # [batch, bars*beats, num_classes]
         
         # Reshape back to original dimensions
         bin_logits = bin_logits.view(batch_size, num_bars, seq_len, -1)  # [batch, bars, time, num_classes]
