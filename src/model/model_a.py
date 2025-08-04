@@ -76,9 +76,8 @@ class PositionEmbedding(nn.Module):
         rhythm_beat_indices = rhythm_beat_indices.expand(batch_size, num_bars, -1)
         rhythm_beat_emb = self.beat_embedding(rhythm_beat_indices)
 
-        rhythm_bar_indices = torch.arange(seq_len // 12, device=device) // 4
-        rhythm_bar_indices = rhythm_bar_indices.unsqueeze(0).unsqueeze(0)
-        rhythm_bar_indices = rhythm_bar_indices.expand(batch_size, num_bars, -1)
+        rhythm_bar_indices = torch.arange(num_bars, device=device).unsqueeze(0).unsqueeze(-1)  # [1, bars, 1]
+        rhythm_bar_indices = rhythm_bar_indices.expand(batch_size, -1, 4)
         rhythm_bar_emb = self.bar_embedding(rhythm_bar_indices)
 
         rhythm_subdivision_indices = torch.ones_like(rhythm_beat_indices) * 12
@@ -536,7 +535,7 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
             loss_rhythm = self.rhythm_criterion(rhythm_logits, rhythm_targets)
             loss = loss_pitch + self.rhythm_loss_weight * loss_rhythm
         elif self.teacher_forcing and disable_rhythm_classifier:
-            assert False, "rhythm classifier is disabled in DEBUG"
+            assert False, "rhythm classifier is disabled in DEBUG:"
             loss_pitch = self._rhythm_instructed_loss(bin_logits, targets, mask)
             loss = loss_pitch
         else:
