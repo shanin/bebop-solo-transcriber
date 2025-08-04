@@ -43,18 +43,18 @@ class PositionEmbedding(nn.Module):
 
         # Get original shapes
         batch_size, num_bars, num_beats, features_dim, num_bins = features.shape
-        seq_len = num_beats * num_bins
+        seq_len = num_beats * num_bins # 4 * 12 = 48
         device = features.device
 
         
         # Create beat indices (0-3 for each beat)
-        beat_indices = torch.arange(seq_len, device=device) // 12
-        beat_indices = beat_indices.unsqueeze(0).unsqueeze(0)  # [1, 1, time]
+        beat_indices = torch.arange(seq_len, device=device) // 12 # 0-3, each beat is 12 subdivisions
+        beat_indices = beat_indices.unsqueeze(0).unsqueeze(0)  # [1, 1, 48]
         beat_indices = beat_indices.expand(batch_size, num_bars, -1)  # [batch, bars, time]
         
         # Create subdivision indices (0-11 for each subdivision)
-        subdivision_indices = torch.arange(seq_len, device=device) % 12
-        subdivision_indices = subdivision_indices.unsqueeze(0).unsqueeze(0)  # [1, 1, time]
+        subdivision_indices = torch.arange(seq_len, device=device) % 12 # 0-11, each subdivision is 12 subdivisions
+        subdivision_indices = subdivision_indices.unsqueeze(0).unsqueeze(0)  # [1, 1, 48]
         subdivision_indices = subdivision_indices.expand(batch_size, num_bars, -1)  # [batch, bars, time]
         
         # Get relative bar indices (0 to num_bars-1)
@@ -100,7 +100,7 @@ class JointPitchRhythmFeatureEncoder(nn.Module):
             embedding_dim: Dimension of the output embeddings (default: 128)
         """
         super().__init__()
-        
+        self.embedding_dim = embedding_dim
         # Activation encoder
         self.activation_encoder = nn.Sequential(
             nn.Linear(activation_dim, 256),
@@ -181,7 +181,7 @@ class JointPitchRhythmFeatureEncoder(nn.Module):
         position_emb, rhythm_position_emb = self.position_bin_rhythm_embedding(x)  # [batch, bars, time, embedding_dim]
         fused = fused + position_emb  # [batch, bars, time, embedding_dim]
         rhythm = masked_rhythm_emb + rhythm_position_emb  # [batch, bars, beats, embedding_dim]
-
+                
         return fused, rhythm
 
     
@@ -536,6 +536,7 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
             loss_rhythm = self.rhythm_criterion(rhythm_logits, rhythm_targets)
             loss = loss_pitch + self.rhythm_loss_weight * loss_rhythm
         elif self.teacher_forcing and disable_rhythm_classifier:
+            assert False, "rhythm classifier is disabled in DEBUG"
             loss_pitch = self._rhythm_instructed_loss(bin_logits, targets, mask)
             loss = loss_pitch
         else:
