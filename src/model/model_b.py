@@ -311,8 +311,20 @@ class RhythmAwareTransformerEncoder(nn.Module):
         rhythm_logits = self.rhythm_output_projection(rhythm_encoded)  # [batch, bars*beats, num_rhythm_classes]
         
         if use_teacher_forcing and injected_mask is not None:
-            #use ground truth
-            scaffold_indices = injected_mask.view(batch_size, -1)  # [batch, bars*time]
+            # Add debugging assertions to understand injected_mask values
+            mask_flat = injected_mask.view(batch_size, -1)  # [batch, bars*time]
+            
+            # Debug: Check what values are actually in injected_mask
+            unique_values = torch.unique(mask_flat)
+            print(f"DEBUG: injected_mask unique values: {unique_values}")
+            print(f"DEBUG: injected_mask shape: {mask_flat.shape}")
+            print(f"DEBUG: injected_mask min: {mask_flat.min()}, max: {mask_flat.max()}")
+            
+            # Assertion to catch the issue
+            assert mask_flat.max() <= 2, f"injected_mask contains values > 2: max={mask_flat.max()}, unique={unique_values}"
+            assert mask_flat.min() >= 0, f"injected_mask contains values < 0: min={mask_flat.min()}, unique={unique_values}"
+            
+            scaffold_indices = mask_flat  # Use directly if already in [0, 1, 2] format
         else:
 
             # Filter out rare and too fast tokens for prediction
