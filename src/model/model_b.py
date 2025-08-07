@@ -236,6 +236,7 @@ class RhythmAwareTransformerEncoder(nn.Module):
         self.onset_token = nn.Parameter(torch.randn(1, 1, embedding_dim))
         self.rest_token = nn.Parameter(torch.randn(1, 1, embedding_dim))
         self.tie_token = nn.Parameter(torch.randn(1, 1, embedding_dim))
+        self.special_token = nn.Parameter(torch.randn(1, 1, embedding_dim))  # for 'x' (too fast)
         
         # Precompute scaffold indices for each rhythm token
         # Each rhythm token corresponds to a 12-step pattern (one beat)
@@ -321,10 +322,10 @@ class RhythmAwareTransformerEncoder(nn.Module):
             print(f"DEBUG: injected_mask min: {mask_flat.min()}, max: {mask_flat.max()}")
             
             # Assertion to catch the issue
-            assert mask_flat.max() <= 2, f"injected_mask contains values > 2: max={mask_flat.max()}, unique={unique_values}"
+            assert mask_flat.max() <= 3, f"injected_mask contains values > 3: max={mask_flat.max()}, unique={unique_values}"
             assert mask_flat.min() >= 0, f"injected_mask contains values < 0: min={mask_flat.min()}, unique={unique_values}"
             
-            scaffold_indices = mask_flat  # Use directly if already in [0, 1, 2] format
+            scaffold_indices = mask_flat  # Use directly if already in [0, 1, 2, 3] format
         else:
 
             # Filter out rare and too fast tokens for prediction
@@ -340,16 +341,17 @@ class RhythmAwareTransformerEncoder(nn.Module):
             scaffold_indices = scaffold_indices.view(batch_size, -1)  # [batch, bars*beats*12]
         
         # Create structural token embeddings using learned parameters
-        # Stack the three learned tokens: [onset, rest, tie]
+        # Stack the four learned tokens: [onset, rest, tie, special]
         structural_tokens = torch.stack([
             self.onset_token.squeeze(),  # [embedding_dim]
             self.rest_token.squeeze(),   # [embedding_dim] 
-            self.tie_token.squeeze()     # [embedding_dim]
-        ], dim=0)  # [3, embedding_dim]
+            self.tie_token.squeeze(),    # [embedding_dim]
+            self.special_token.squeeze() # [embedding_dim]
+        ], dim=0)  # [4, embedding_dim]
         
         # Use embedding lookup to get structural embeddings
-        # scaffold_indices: [batch, bars*beats*12] with values 0, 1, 2
-        # structural_tokens: [3, embedding_dim]
+        # scaffold_indices: [batch, bars*beats*12] with values 0, 1, 2, 3
+        # structural_tokens: [4, embedding_dim]
         structural_embeddings = F.embedding(scaffold_indices, structural_tokens)  # [batch, bars*beats*12, embedding_dim]
         
         # Inject structural information into bin embeddings
