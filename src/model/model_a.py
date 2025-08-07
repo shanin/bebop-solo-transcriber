@@ -535,7 +535,6 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
             loss_rhythm = self.rhythm_criterion(rhythm_logits, rhythm_targets)
             loss = loss_pitch + self.rhythm_loss_weight * loss_rhythm
         elif self.teacher_forcing and disable_rhythm_classifier:
-            assert False, "rhythm classifier is disabled in DEBUG:"
             loss_pitch = self._rhythm_instructed_loss(bin_logits, targets, mask)
             loss = loss_pitch
         else:
