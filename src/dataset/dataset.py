@@ -34,6 +34,8 @@ class TrackDataset(Dataset):
             self.files = self.val_files
         elif self.split == 'test':
             self.files = self.test_files
+        elif self.split == 'xr_test':
+            self.files = self.xr_test_files
         elif self.split == 'all':
             self.files = self.all_files
         else:
@@ -68,6 +70,13 @@ class OmnibookDataset(TrackDataset):
         self.val_files = [
             'OB_Nqn4c.original.pt', 'OB_6Cbwc.original.pt'
         ]
+        self.xr_test_files = [f'OB_{f}.original.pt' for f in [
+            'wv3wc', '3zn4c', 'D3fYc', 'nvJyc', 'myn4c', 'gRfYc',
+            '1p64c', '7XTyc', 'N3fYc', '3RfYc', 'vRfYc', '2RfYc', 'mTHyc',
+            'WRfYc', '9THwc', 'S1swc', 'KRfYc', 'Pq3yc', 'nRfYc', 'rRfYc',
+            '7RfYc', 'S5VYc', '73bwc', 'N8swc', '6Cbwc', 'QRfYc', 'yp3wc',
+            'lTXyc', 'cXbwc', 'LRfYc'
+        ]]
         self.train_files = [f for f in self.all_files if f not in self.test_files and f not in self.val_files]
 
 class FilosaxDataset(TrackDataset):
