@@ -1,7 +1,8 @@
 import os
 from src.dataset.dataset import  InferenceDataset, TrackDataset
 from torch.utils.data import DataLoader
-from src.model.model_a import RhythmScaffoldLightningModule
+from src.model.model_a import RhythmScaffoldLightningModule as ModelA
+from src.model.model_b import RhythmScaffoldLightningModule as ModelB
 import torch
 import argparse
 from src.utils.renderer import main as render_midi
@@ -13,9 +14,15 @@ if __name__ == '__main__':
     parser.add_argument('--checkpoint', type=str, required=True)
     parser.add_argument('--handler', type=str, required=True)
     parser.add_argument('--output_dir', type=str, required=True)
+    parser.add_argument('--model_type', type=str, required=True)
     args = parser.parse_args()
     
-    model = RhythmScaffoldLightningModule.load_from_checkpoint(f'solo-transcriber/{args.checkpoint}/checkpoints/best-model.ckpt')
+    if args.model_type == 'model_a':
+        model = ModelA.load_from_checkpoint(f'solo-transcriber/{args.checkpoint}/checkpoints/best-model.ckpt')
+    elif args.model_type == 'model_b':
+        model = ModelB.load_from_checkpoint(f'solo-transcriber/{args.checkpoint}/checkpoints/best-model.ckpt')
+    else:
+        raise ValueError(f'Invalid model type: {args.model_type}')
     model.eval()
     model.to('cpu')
 
