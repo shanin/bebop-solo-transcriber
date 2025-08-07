@@ -43,18 +43,18 @@ class PositionEmbedding(nn.Module):
 
         # Get original shapes
         batch_size, num_bars, num_beats, features_dim, num_bins = features.shape
-        seq_len = num_beats * num_bins # 4 * 12 = 48
+        seq_len = num_beats * num_bins
         device = features.device
 
         
         # Create beat indices (0-3 for each beat)
-        beat_indices = torch.arange(seq_len, device=device) // 12 # 0-3, each beat is 12 subdivisions
-        beat_indices = beat_indices.unsqueeze(0).unsqueeze(0)  # [1, 1, 48]
+        beat_indices = torch.arange(seq_len, device=device) // 12
+        beat_indices = beat_indices.unsqueeze(0).unsqueeze(0)  # [1, 1, time]
         beat_indices = beat_indices.expand(batch_size, num_bars, -1)  # [batch, bars, time]
         
         # Create subdivision indices (0-11 for each subdivision)
-        subdivision_indices = torch.arange(seq_len, device=device) % 12 # 0-11, each subdivision is 12 subdivisions
-        subdivision_indices = subdivision_indices.unsqueeze(0).unsqueeze(0)  # [1, 1, 48]
+        subdivision_indices = torch.arange(seq_len, device=device) % 12
+        subdivision_indices = subdivision_indices.unsqueeze(0).unsqueeze(0)  # [1, 1, time]
         subdivision_indices = subdivision_indices.expand(batch_size, num_bars, -1)  # [batch, bars, time]
         
         # Get relative bar indices (0 to num_bars-1)
@@ -99,7 +99,7 @@ class JointPitchRhythmFeatureEncoder(nn.Module):
             embedding_dim: Dimension of the output embeddings (default: 128)
         """
         super().__init__()
-        self.embedding_dim = embedding_dim
+        
         # Activation encoder
         self.activation_encoder = nn.Sequential(
             nn.Linear(activation_dim, 256),
@@ -180,15 +180,17 @@ class JointPitchRhythmFeatureEncoder(nn.Module):
         position_emb, rhythm_position_emb = self.position_bin_rhythm_embedding(x)  # [batch, bars, time, embedding_dim]
         fused = fused + position_emb  # [batch, bars, time, embedding_dim]
         rhythm = masked_rhythm_emb + rhythm_position_emb  # [batch, bars, beats, embedding_dim]
-                
+
         return fused, rhythm
 
     
-class JointPitchRhythmTransformerEncoder(nn.Module):
+class RhythmAwareTransformerEncoder(nn.Module):
     def __init__(self, 
                  embedding_dim: int = 128,
                  num_heads: int = 8,
                  num_layers: int = 6,
+                 num_backend_heads: int = 8,
+                 num_backend_layers: int = 2,
                  dropout: float = 0.1,
                  num_bin_classes: int = 128, 
                  num_rhythm_classes: int = 44,
@@ -207,7 +209,7 @@ class JointPitchRhythmTransformerEncoder(nn.Module):
         self.feature_encoder = JointPitchRhythmFeatureEncoder(embedding_dim=embedding_dim)
  
         
-        # Transformer encoder layers
+        # Transformer encoder layers for joint processing
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=embedding_dim,
             nhead=num_heads,
@@ -217,17 +219,68 @@ class JointPitchRhythmTransformerEncoder(nn.Module):
         )
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
         
+        # Additional transformer layers for bin processing after structural injection
+        bin_encoder_layer = nn.TransformerEncoderLayer(
+            d_model=embedding_dim,
+            nhead=num_backend_heads,
+            dim_feedforward=embedding_dim * 4,
+            dropout=dropout,
+            batch_first=True
+        )
+        self.bin_transformer = nn.TransformerEncoder(bin_encoder_layer, num_layers=num_backend_layers)
+        
         # Output projection
         self.bin_output_projection = nn.Linear(embedding_dim, num_bin_classes)
         self.rhythm_output_projection = nn.Linear(embedding_dim, num_rhythm_classes)
+
+        self.onset_token = nn.Parameter(torch.randn(1, 1, embedding_dim))
+        self.rest_token = nn.Parameter(torch.randn(1, 1, embedding_dim))
+        self.tie_token = nn.Parameter(torch.randn(1, 1, embedding_dim))
+        self.special_token = nn.Parameter(torch.randn(1, 1, embedding_dim))  # for 'x' (too fast)
         
-    def forward(self, x: dict) -> torch.Tensor:
+        # Precompute scaffold indices for each rhythm token
+        # Each rhythm token corresponds to a 12-step pattern (one beat)
+        scaffold_indices = self._build_scaffold_lookup_table()
+        self.register_buffer('scaffold_indices', scaffold_indices)
+        
+    def _build_scaffold_lookup_table(self) -> torch.Tensor:
+        """
+        Build a lookup table of scaffold indices for each rhythm token.
+        
+        Returns:
+            torch.Tensor: Shape [num_rhythm_tokens, 12] where values are:
+                - 0 = onset position (use onset_token)
+                - 1 = rest position (use rest_token) 
+                - 2 = tie position (use tie_token)
+        """
+        scaffold_indices = []
+        
+        for rhythm_id in range(len(INV_RHYTHM_TOKENS)):
+            rhythm_code = INV_RHYTHM_TOKENS[rhythm_id]
+            indices = []
+            
+            for ch in rhythm_code:
+                if ch == 'r':
+                    indices.append(1)  # rest -> index 1
+                elif ch == 't':
+                    indices.append(2)  # tie -> index 2
+                elif ch == 'o':
+                    indices.append(0)  # onset -> index 0
+            
+            scaffold_indices.append(indices)
+        
+        return torch.tensor(scaffold_indices, dtype=torch.long)
+        
+    def forward(self, x: dict, injected_mask: torch.Tensor = None, use_teacher_forcing: bool = True) -> torch.Tensor:
         """
         Args:
             x: Dictionary containing:
                 - activations: [batch, bars, time, activation_dim]
                 - features: [batch, bars, time, feature_dim]
                 - bar_num: [batch, bars] tensor of bar numbers
+
+            injected_mask: [batch, bars, time] tensor of mask for structural injection. 
+            if None, no structural injection is performed - mask is build from predicted rhythm tokens
         
         Returns:
             torch.Tensor: Logits of shape [batch, bars, time, num_classes]
@@ -251,9 +304,57 @@ class JointPitchRhythmTransformerEncoder(nn.Module):
         # Apply transformer
         encoded = self.transformer(encoded_sequence, mask)  # [batch, bars*time + bars*beats, embedding_dim]
         
-        # Split logits into bin and rhythm
-        bin_logits = self.bin_output_projection(encoded[:, :embeddings.shape[1], :])  # [batch, bars*time, num_classes]
-        rhythm_logits = self.rhythm_output_projection(encoded[:, embeddings.shape[1]:, :])  # [batch, bars*beats, num_classes]
+        # Split encoded sequence back into bin and rhythm parts
+        bin_encoded = encoded[:, :embeddings.shape[1], :]  # [batch, bars*time, embedding_dim]
+        rhythm_encoded = encoded[:, embeddings.shape[1]:, :]  # [batch, bars*beats, embedding_dim]
+        
+        # Get rhythm logits and predictions
+        rhythm_logits = self.rhythm_output_projection(rhythm_encoded)  # [batch, bars*beats, num_rhythm_classes]
+        
+        if use_teacher_forcing and injected_mask is not None:
+            mask_flat = injected_mask.view(batch_size, -1)  # [batch, bars*time]
+            
+            # Assertion to catch the issue
+            assert mask_flat.max() <= 3, f"injected_mask contains values > 3: max={mask_flat.max()}, unique={unique_values}"
+            assert mask_flat.min() >= 0, f"injected_mask contains values < 0: min={mask_flat.min()}, unique={unique_values}"
+            
+            scaffold_indices = mask_flat  # Use directly if already in [0, 1, 2, 3] format
+        else:
+
+            # Filter out rare and too fast tokens for prediction
+            filtered_rhythm_logits = rhythm_logits[:, :, :-2]  # [batch, bars*beats, num_rhythm_classes-2]
+            rhythm_predictions = torch.argmax(filtered_rhythm_logits, dim=-1)  # [batch, bars*beats]
+            
+            # Get scaffold indices for each rhythm prediction
+            # rhythm_predictions: [batch, bars*beats]
+            # self.scaffold_indices: [num_rhythm_tokens, 12]
+            scaffold_indices = self.scaffold_indices[rhythm_predictions]  # [batch, bars*beats, 12]
+            
+            # Reshape to match bin sequence length
+            scaffold_indices = scaffold_indices.view(batch_size, -1)  # [batch, bars*beats*12]
+        
+        # Create structural token embeddings using learned parameters
+        # Stack the four learned tokens: [onset, rest, tie, special]
+        structural_tokens = torch.stack([
+            self.onset_token.squeeze(),  # [embedding_dim]
+            self.rest_token.squeeze(),   # [embedding_dim] 
+            self.tie_token.squeeze(),    # [embedding_dim]
+            self.special_token.squeeze() # [embedding_dim]
+        ], dim=0)  # [4, embedding_dim]
+        
+        # Use embedding lookup to get structural embeddings
+        # scaffold_indices: [batch, bars*beats*12] with values 0, 1, 2, 3
+        # structural_tokens: [4, embedding_dim]
+        structural_embeddings = F.embedding(scaffold_indices, structural_tokens)  # [batch, bars*beats*12, embedding_dim]
+        
+        # Inject structural information into bin embeddings
+        bin_encoded_with_structure = bin_encoded + structural_embeddings  # [batch, bars*time, embedding_dim]
+        
+        # Apply additional transformer layers to bin embeddings with structural information
+        bin_encoded_final = self.bin_transformer(bin_encoded_with_structure, mask)  # [batch, bars*time, embedding_dim]
+        
+        # Get final bin logits
+        bin_logits = self.bin_output_projection(bin_encoded_final)  # [batch, bars*time, num_classes]
         
         # Reshape back to original dimensions
         bin_logits = bin_logits.view(batch_size, num_bars, seq_len, -1)  # [batch, bars, time, num_classes]
@@ -261,15 +362,16 @@ class JointPitchRhythmTransformerEncoder(nn.Module):
         
         return bin_logits, rhythm_logits
     
-    def predict(self, x: dict) -> torch.Tensor:
+    def predict(self, x: dict, injected_mask: torch.Tensor = None) -> torch.Tensor:
         """
         Args:
             x: Same as forward()
+            injected_mask: Mask for structural injection (optional for inference)
             
         Returns:
             torch.Tensor: Predicted class indices of shape [batch, bars, time]
         """
-        bin_logits, rhythm_logits = self.forward(x)
+        bin_logits, rhythm_logits = self.forward(x, injected_mask, use_teacher_forcing=False)
         return torch.argmax(bin_logits, dim=-1), torch.argmax(rhythm_logits, dim=-1) 
 
 class TranscriptionMetrics:
@@ -338,45 +440,7 @@ class TranscriptionMetrics:
         # Compute accuracy
         return (pred_voiced == target_voiced).float().mean()
     
-        
-    def DEPR_tokens_to_rhythm_tokens(self, tokens: torch.Tensor) -> torch.Tensor:
-        """
-        Convert a sequence of tokens to 4 rhythm tokens (one per beat).
-        Each beat is represented by a single rhythm token based on the pattern of notes in that beat.
-        
-        Args:
-            tokens: Token indices of shape [batch, bars, time]
-            
-        Returns:
-            torch.Tensor: Rhythm tokens of shape [batch, bars, 4]
-        """
-        batch_size, num_bars, seq_len = tokens.shape
-        rhythm_tokens = torch.zeros((batch_size, num_bars, 4), device=tokens.device)
-        
-        # Process each beat (12 subdivisions per beat)
-        for b in range(batch_size):
-            for bar in range(num_bars):
-                rhythm_tokens[b, bar] = self.rhythm_tokenizer.encode(tokens[b, bar])
-        
-        return rhythm_tokens
     
-    def DEPR_compute_bare_rhythm_accuracy(self, pred_tokens: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        """
-        Compute rhythm class accuracy by comparing rhythm tokens.
-        
-        Args:
-            pred_tokens: Predicted token indices of shape [batch, bars, time]
-            targets: Ground truth token indices of shape [batch, bars, time]
-            
-        Returns:
-            torch.Tensor: Rhythm accuracy (scalar)
-        """
-        # Convert to rhythm tokens
-        pred_rhythm = self._tokens_to_rhythm_tokens(pred_tokens).view(-1) 
-        
-        # Compare rhythm tokens
-        correct = (pred_rhythm == targets).float()
-        return correct.mean()
 
     def _compute_onset_recall(self, pred_tokens: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         pred_onsets = pred_tokens < 128
@@ -411,6 +475,8 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
                  embedding_dim: int = 128,
                  num_heads: int = 8,
                  num_layers: int = 6,
+                 num_backend_heads: int = 8,
+                 num_backend_layers: int = 2,
                  dropout: float = 0.1,
                  learning_rate: float = 1e-4,
                  weight_decay: float = 0.01,
@@ -434,10 +500,12 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
         self.save_hyperparameters()
         
         # Create model
-        self.model = JointPitchRhythmTransformerEncoder(
+        self.model = RhythmAwareTransformerEncoder(
             embedding_dim=embedding_dim,
             num_heads=num_heads,
             num_layers=num_layers,
+            num_backend_heads=num_backend_heads,
+            num_backend_layers=num_backend_layers,
             dropout=dropout,
             num_bin_classes=128,
             num_rhythm_classes=44,
@@ -509,13 +577,14 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
         final[indices] = bin_predictions[indices]
         return final
 
-    def forward(self, x: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.model(x)
+    def forward(self, x: Dict[str, torch.Tensor], injected_mask: torch.Tensor, use_teacher_forcing: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.model(x, injected_mask, use_teacher_forcing)
     
     def generic_step(self, batch: Dict[str, Dict[str, torch.Tensor]], batch_idx: int, mode: str) -> torch.Tensor:
         x, y = batch['x'], batch['y']
         meta = batch['meta']
-        bin_logits, rhythm_logits = self(x)
+        injected_mask = y['mask']
+        bin_logits, rhythm_logits = self(x, injected_mask, use_teacher_forcing=True)
          
         # Reshape for loss computation
         batch_size, num_bars, seq_len, num_classes = bin_logits.shape
@@ -619,7 +688,8 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
     
     def predict_step(self, batch: Dict[str, Dict[str, torch.Tensor]], batch_idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         x = batch['x']
-        bin_logits, rhythm_logits = self(x)
+        injected_mask = None  # Use predicted rhythm during inference
+        bin_logits, rhythm_logits = self(x, injected_mask, use_teacher_forcing=False)
         return torch.argmax(bin_logits, dim=-1), torch.argmax(rhythm_logits, dim=-1)
     
     @staticmethod

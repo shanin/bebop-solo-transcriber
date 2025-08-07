@@ -17,6 +17,7 @@ class TrackDataset(Dataset):
         self.rhythm_tokens = RHYTHM_TOKENS
         self.all_files = [f for f in sorted(os.listdir(data_dir)) if f.endswith('.pt')]
         self.split = split
+        self.instrument = 'none'
         if self.split != 'all':
             self.prepare_splits()
         self.prepare_file_list()
@@ -33,6 +34,8 @@ class TrackDataset(Dataset):
             self.files = self.val_files
         elif self.split == 'test':
             self.files = self.test_files
+        elif self.split == 'xr_test':
+            self.files = self.xr_test_files
         elif self.split == 'all':
             self.files = self.all_files
         else:
@@ -67,8 +70,14 @@ class OmnibookDataset(TrackDataset):
         self.val_files = [
             'OB_Nqn4c.original.pt', 'OB_6Cbwc.original.pt'
         ]
+        self.xr_test_files = [f'OB_{f}.original.pt' for f in [
+            'wv3wc', '3zn4c', 'D3fYc', 'nvJyc', 'myn4c', 'gRfYc',
+            '1p64c', '7XTyc', 'N3fYc', '3RfYc', 'vRfYc', '2RfYc', 'mTHyc',
+            'WRfYc', '9THwc', 'S1swc', 'KRfYc', 'Pq3yc', 'nRfYc', 'rRfYc',
+            '7RfYc', 'S5VYc', '73bwc', 'N8swc', '6Cbwc', 'QRfYc', 'yp3wc',
+            'lTXyc', 'cXbwc', 'LRfYc'
+        ]]
         self.train_files = [f for f in self.all_files if f not in self.test_files and f not in self.val_files]
-
 
 class FilosaxDataset(TrackDataset):
     def __init__(self, data_dir=None, source: str = 'original', split: str = 'all'):
@@ -84,7 +93,7 @@ class FilosaxDataset(TrackDataset):
         self.train_files = [f for f in self.all_files if f not in self.test_files and f not in self.val_files and f.endswith(f'.{self.source}.pt')]
 
 class SegmentDataset(Dataset):
-    def __init__(self, dataset, num_consecutive_bars: int, random_transposition: bool = False, use_cache: bool = True, pitch_shift: bool = False):
+    def __init__(self, dataset, num_consecutive_bars: int, random_transposition: bool = False, use_cache: bool = True, pitch_shift: bool = False, disable_rhythm_classifier = False):
         """
         Args:
             dataset: TrackDataset object
@@ -101,6 +110,7 @@ class SegmentDataset(Dataset):
         self.index = []
         self.cache = {}
         self.use_cache = use_cache
+        self.disable_rhythm_classifier = disable_rhythm_classifier
         for track_idx, track in enumerate(self.dataset):
             num_bars = track['tokens'].shape[0]
             for i in range(0, num_bars - self.num_consecutive_bars + 1):
@@ -118,6 +128,9 @@ class SegmentDataset(Dataset):
         elif self.mode == 'alto':
             min_shift = -8
             max_shift = 4
+        elif self.mode == 'none':
+            min_shift = -3
+            max_shift = 3
         pitch_mask = (segment['y']['tokens'] < 128)
         if pitch_mask.any():
             min_pitch = segment['y']['tokens'][pitch_mask].min().item()
@@ -156,6 +169,9 @@ class SegmentDataset(Dataset):
                 'inferred_time_feel': track['inferred_time_feel'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
                 'source_time_feel': track['source_time_feel'].clone(),
             },
+            'meta': {
+                'disable_rhythm_classifier': self.disable_rhythm_classifier,
+            }
         }
         if self.random_transposition:
             segment = self.transposition(segment)

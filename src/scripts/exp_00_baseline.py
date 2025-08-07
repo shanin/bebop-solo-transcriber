@@ -9,7 +9,7 @@ import argparse
 def main(args):
     filosax_train = FilosaxDataset(data_dir=args.filosax_dir, split = 'train', source = 'original')
     filosax_train_segments = SegmentDataset(filosax_train, num_consecutive_bars = 8, random_transposition = args.transpose_augmentation)
-    filosax_train_loader = DataLoader(filosax_train_segments, batch_size=512, shuffle=True, num_workers=4, pin_memory=True)
+    filosax_train_loader = DataLoader(filosax_train_segments, batch_size=512, shuffle=True, num_workers=0)
 
     filosax_val = FilosaxDataset(data_dir=args.filosax_dir, split = 'val', source = 'original')
     filosax_val_segments = SegmentDataset(filosax_val, num_consecutive_bars = 8, random_transposition = False)
@@ -54,8 +54,6 @@ def main(args):
 
     trainer.test(model, filosax_test_loader)
 
-    model.wandb_logger.finish()
-
     print(checkpoint_callback.best_model_path)
 
 
@@ -64,6 +62,6 @@ if __name__ == "__main__":
     parser.add_argument("--experiment_name", type=str, default="default")
     parser.add_argument("--filosax_dir", type=str, required=True)
     parser.add_argument("--transpose_augmentation", type=bool, default=True)
-    parser.add_argument("--rhythm_loss_weight", type=float, default=0.0)
+    parser.add_argument("--rhythm_loss_weight", type=float, default=1.0)
     args = parser.parse_args()
     main(args)
