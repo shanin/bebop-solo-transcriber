@@ -330,9 +330,9 @@ class RhythmAwareTransformerEncoder(nn.Module):
         # Create structural token embeddings using learned parameters
         # Stack the three learned tokens: [onset, rest, tie]
         structural_tokens = torch.stack([
-            self.onset_token.squeeze(0),  # [1, embedding_dim]
-            self.rest_token.squeeze(0),   # [1, embedding_dim] 
-            self.tie_token.squeeze(0)     # [1, embedding_dim]
+            self.onset_token.squeeze(),  # [embedding_dim]
+            self.rest_token.squeeze(),   # [embedding_dim] 
+            self.tie_token.squeeze()     # [embedding_dim]
         ], dim=0)  # [3, embedding_dim]
         
         # Use embedding lookup to get structural embeddings
