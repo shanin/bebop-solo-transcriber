@@ -312,14 +312,7 @@ class RhythmAwareTransformerEncoder(nn.Module):
         rhythm_logits = self.rhythm_output_projection(rhythm_encoded)  # [batch, bars*beats, num_rhythm_classes]
         
         if use_teacher_forcing and injected_mask is not None:
-            # Add debugging assertions to understand injected_mask values
             mask_flat = injected_mask.view(batch_size, -1)  # [batch, bars*time]
-            
-            # Debug: Check what values are actually in injected_mask
-            unique_values = torch.unique(mask_flat)
-            print(f"DEBUG: injected_mask unique values: {unique_values}")
-            print(f"DEBUG: injected_mask shape: {mask_flat.shape}")
-            print(f"DEBUG: injected_mask min: {mask_flat.min()}, max: {mask_flat.max()}")
             
             # Assertion to catch the issue
             assert mask_flat.max() <= 3, f"injected_mask contains values > 3: max={mask_flat.max()}, unique={unique_values}"
@@ -447,45 +440,7 @@ class TranscriptionMetrics:
         # Compute accuracy
         return (pred_voiced == target_voiced).float().mean()
     
-        
-    def DEPR_tokens_to_rhythm_tokens(self, tokens: torch.Tensor) -> torch.Tensor:
-        """
-        Convert a sequence of tokens to 4 rhythm tokens (one per beat).
-        Each beat is represented by a single rhythm token based on the pattern of notes in that beat.
-        
-        Args:
-            tokens: Token indices of shape [batch, bars, time]
-            
-        Returns:
-            torch.Tensor: Rhythm tokens of shape [batch, bars, 4]
-        """
-        batch_size, num_bars, seq_len = tokens.shape
-        rhythm_tokens = torch.zeros((batch_size, num_bars, 4), device=tokens.device)
-        
-        # Process each beat (12 subdivisions per beat)
-        for b in range(batch_size):
-            for bar in range(num_bars):
-                rhythm_tokens[b, bar] = self.rhythm_tokenizer.encode(tokens[b, bar])
-        
-        return rhythm_tokens
     
-    def DEPR_compute_bare_rhythm_accuracy(self, pred_tokens: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        """
-        Compute rhythm class accuracy by comparing rhythm tokens.
-        
-        Args:
-            pred_tokens: Predicted token indices of shape [batch, bars, time]
-            targets: Ground truth token indices of shape [batch, bars, time]
-            
-        Returns:
-            torch.Tensor: Rhythm accuracy (scalar)
-        """
-        # Convert to rhythm tokens
-        pred_rhythm = self._tokens_to_rhythm_tokens(pred_tokens).view(-1) 
-        
-        # Compare rhythm tokens
-        correct = (pred_rhythm == targets).float()
-        return correct.mean()
 
     def _compute_onset_recall(self, pred_tokens: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         pred_onsets = pred_tokens < 128
