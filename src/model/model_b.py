@@ -577,7 +577,7 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
         final[indices] = bin_predictions[indices]
         return final
 
-    def forward(self, x: Dict[str, torch.Tensor], injected_mask: torch.Tensor, use_teacher_forcing: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: Dict[str, torch.Tensor], injected_mask: torch.Tensor = None, use_teacher_forcing: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.model(x, injected_mask, use_teacher_forcing)
     
     def generic_step(self, batch: Dict[str, Dict[str, torch.Tensor]], batch_idx: int, mode: str) -> torch.Tensor:
