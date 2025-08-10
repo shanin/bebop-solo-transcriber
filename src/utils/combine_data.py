@@ -373,7 +373,7 @@ def combine_wjd(labeled_scores, pesto_folder, flux_folder, output_folder, prefix
 
         torch.save(torch_data, os.path.join(output_folder, f'{prefix}{song:03d}.original.pt'))
 
-def prepare_beats(beats):
+def prepare_beats(beats, double_time=False):
     syncpoints = beats[:,0]
     beat_nums = beats[:,1]
     bars = []
@@ -382,20 +382,59 @@ def prepare_beats(beats):
         if beat_nums[i] == 1:
             if len(content) == 4:
                 content.append(syncpoints[i]) # that's right, should be 1, 2, 3, 4, 1
-                bars.append(content)
+                if not double_time:
+                    bars.append(content)
+                else:
+                    first_half = [
+                        content[0],
+                        (content[0] + content[1]) / 2,
+                        content[1],
+                        (content[1] + content[2]) / 2,
+                        content[2],
+                    ]
+                    second_half = [
+                        content[2],
+                        (content[2] + content[3]) / 2,
+                        content[3],
+                        (content[3] + content[4]) / 2,
+                        content[4],
+                    ]
+                    bars.append(first_half)
+                    bars.append(second_half)
             content = []
         content.append(syncpoints[i])
+    if len(content) == 4:
+        beat_len = syncpoints[-1] - syncpoints[-2]
+        content.append(syncpoints[-1] + beat_len)
+        if not double_time:
+            bars.append(content)
+        else:
+            first_half = [
+                content[0],
+                (content[0] + content[1]) / 2,
+                content[1],
+                (content[1] + content[2]) / 2,
+                content[2],
+            ]
+            second_half = [
+                content[2],
+                (content[2] + content[3]) / 2,
+                content[3],
+                (content[3] + content[4]) / 2,
+                content[4],
+            ]
+            bars.append(first_half)
+            bars.append(second_half)
     return bars
 
 
-
-def combine_inference(pesto_folder, flux_folder, beats_folder, output_folder):
+def combine_inference(pesto_folder, flux_folder, beats_folder, output_folder, double_time=False):
     files = os.listdir(beats_folder)
     for file in files:
         if file.endswith('.beats.tsv'):
             id_ = file.split('.beats.tsv')[0]
             beats = np.loadtxt(os.path.join(beats_folder, file))
-            bars = prepare_beats(beats)
+            bars = prepare_beats(beats, double_time)
             activations = np.load(os.path.join(pesto_folder, f'{id_}.activations.npy'))
             confidence = np.load(os.path.join(pesto_folder, f'{id_}.confidence.npy'))
             amplitude = np.load(os.path.join(pesto_folder, f'{id_}.amplitude.npy'))
@@ -418,7 +457,10 @@ def combine_inference(pesto_folder, flux_folder, beats_folder, output_folder):
             torch_data['scalar_features'] = torch_data['scalar_features'].transpose(1, 2)
             if not os.path.exists(output_folder):
                 os.makedirs(output_folder)
-            torch.save(torch_data, os.path.join(output_folder, f'{id_}.pt'))
+            if double_time:
+                torch.save(torch_data, os.path.join(output_folder, f'{id_}.double_time.pt'))
+            else:
+                torch.save(torch_data, os.path.join(output_folder, f'{id_}.original.pt'))
 
             
 if __name__ == '__main__':
@@ -433,7 +475,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.mode == 'inference':
-        combine_inference(args.pesto_folder, args.flux_folder, args.beats_folder, args.output_folder)
+        for double_time in [False, True]:
+            combine_inference(args.pesto_folder, args.flux_folder, args.beats_folder, args.output_folder, double_time)
         exit()
 
     with open(args.labeled_scores, 'r') as f:

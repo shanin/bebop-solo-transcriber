@@ -5,7 +5,7 @@ import numpy as np
 import soundfile as sf
 import librosa
 
-def prepare_beats(beats):
+def prepare_beats(beats, double_time=False):
     syncpoints = beats[:,0]
     beat_nums = beats[:,1]
     bars = []
@@ -14,13 +14,49 @@ def prepare_beats(beats):
         if beat_nums[i] == 1:
             if len(content) == 4:
                 content.append(syncpoints[i]) # that's right, should be 1, 2, 3, 4, 1
-                bars.append(content)
+                if not double_time:
+                    bars.append(content)
+                else:
+                    first_half = [
+                        content[0],
+                        (content[0] + content[1]) / 2,
+                        content[1],
+                        (content[1] + content[2]) / 2,
+                        content[2],
+                    ]
+                    second_half = [
+                        content[2],
+                        (content[2] + content[3]) / 2,
+                        content[3],
+                        (content[3] + content[4]) / 2,
+                        content[4],
+                    ]
+                    bars.append(first_half)
+                    bars.append(second_half)
             content = []
         content.append(syncpoints[i])
     if len(content) == 4:
         beat_len = syncpoints[-1] - syncpoints[-2]
         content.append(syncpoints[-1] + beat_len)
-        bars.append(content)
+        if not double_time:
+            bars.append(content)
+        else:
+            first_half = [
+                content[0],
+                (content[0] + content[1]) / 2,
+                content[1],
+                (content[1] + content[2]) / 2,
+                content[2],
+            ]
+            second_half = [
+                content[2],
+                (content[2] + content[3]) / 2,
+                content[3],
+                (content[3] + content[4]) / 2,
+                content[4],
+            ]
+            bars.append(first_half)
+            bars.append(second_half)
     return bars
 
 
@@ -53,7 +89,14 @@ def tokens_to_score_midi(tokens,
     
     # Create MIDI file
     midi = pretty_midi.PrettyMIDI(initial_tempo=tempo)
+    
+    # Add time signature (4/4)
+    time_sig = pretty_midi.TimeSignature(numerator=4, denominator=4, time=0.0)
+    midi.time_signature_changes.append(time_sig)
+    
+    # Create piano instrument with treble clef indication
     piano_program = pretty_midi.Instrument(program=0)  # 0 = Acoustic Grand Piano
+    piano_program.name = "Piano (Treble Clef)"
     
     # Create click track if requested
     if add_clicks:
@@ -198,7 +241,14 @@ def tokens_to_performance_midi(tokens,
     
     # Create MIDI file
     midi = pretty_midi.PrettyMIDI()
+    
+    # Add time signature (4/4)
+    time_sig = pretty_midi.TimeSignature(numerator=4, denominator=4, time=0.0)
+    midi.time_signature_changes.append(time_sig)
+    
+    # Create piano instrument with treble clef indication
     piano_program = pretty_midi.Instrument(program=0)  # 0 = Acoustic Grand Piano
+    piano_program.name = "Piano (Treble Clef)"
     
     # Create click track if requested
     if add_clicks:
@@ -218,9 +268,21 @@ def tokens_to_performance_midi(tokens,
     current_pitch = None
     current_start = None
     current_duration = 0    
+    
+    # Debug: Check array sizes
+    print(f"DEBUG: tokens.shape = {tokens.shape}")
+    print(f"DEBUG: len(beats) = {len(beats)}")
+    if len(beats) > 0:
+        print(f"DEBUG: beats[0] = {beats[0]}")
+        print(f"DEBUG: len(beats[0]) = {len(beats[0])}")
+    
     for bar_idx in range(len(tokens)):
-        
-        
+        # Bounds check for beats array
+        if bar_idx >= len(beats):
+            print(f"ERROR: bar_idx {bar_idx} >= len(beats) {len(beats)}")
+            print(f"Skipping remaining bars from {bar_idx} onwards")
+            break
+            
         # Add clicks if requested
         if add_clicks:
             # Add downbeat click (higher)
@@ -337,9 +399,9 @@ def midi_to_audio_stereo(midi_path, audio_path, output_path, sr=22050):
     sf.write(output_path, stereo.T, sr)
     print(f"Stereo file saved to: {output_path}")
 
-def main(beats_file, tokens, midi_performance_output_file, midi_score_output_file, audio_path, output_path):
+def main(beats_file, tokens, midi_performance_output_file, midi_score_output_file, audio_path, output_path, double_time=False):
     beats = np.loadtxt(beats_file)
-    bars = prepare_beats(beats)
+    bars = prepare_beats(beats, double_time)
     midi = tokens_to_performance_midi(tokens, beats = bars, add_clicks = False)
     midi.write(midi_performance_output_file)
     midi_to_audio_stereo(midi_performance_output_file, audio_path, output_path)
@@ -355,8 +417,8 @@ if __name__ == '__main__':
     parser.add_argument('--midi_score_output_file', type=str, required=True)
     parser.add_argument('--audio_path', type=str, required=True)
     parser.add_argument('--output_path', type=str, required=True)
-
+    parser.add_argument('--double_time', action='store_true', default=False)
 
     args = parser.parse_args()
     tokens = torch.load(args.tokens_file)
-    main(args.beats_file, tokens, args.midi_performance_output_file, args.midi_score_output_file, args.audio_path, args.output_path)
+    main(args.beats_file, tokens, args.midi_performance_output_file, args.midi_score_output_file, args.audio_path, args.output_path, args.double_time)
