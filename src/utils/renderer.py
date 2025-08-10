@@ -13,8 +13,8 @@ def prepare_beats(beats, double_time=False):
     for i in range(len(syncpoints)):
         if beat_nums[i] == 1:
             if len(content) == 4:
+                content.append(syncpoints[i]) # that's right, should be 1, 2, 3, 4, 1
                 if not double_time:
-                    content.append(syncpoints[i]) # that's right, should be 1, 2, 3, 4, 1
                     bars.append(content)
                 else:
                     first_half = [
