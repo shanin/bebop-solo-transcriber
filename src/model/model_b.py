@@ -271,7 +271,7 @@ class RhythmAwareTransformerEncoder(nn.Module):
         
         return torch.tensor(scaffold_indices, dtype=torch.long)
         
-    def forward(self, x: dict, injected_mask: torch.Tensor = None, use_teacher_forcing: bool = True) -> torch.Tensor:
+    def forward(self, x: dict, injected_mask: torch.Tensor = None, use_teacher_forcing: bool = False) -> torch.Tensor:
         """
         Args:
             x: Dictionary containing:
