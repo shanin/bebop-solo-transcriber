@@ -438,7 +438,7 @@ def combine_inference(pesto_folder, flux_folder, beats_folder, output_folder, do
             if double_time:
                 torch.save(torch_data, os.path.join(output_folder, f'{id_}.double_time.pt'))
             else:
-                torch.save(torch_data, os.path.join(output_folder, f'{id_}.pt'))
+                torch.save(torch_data, os.path.join(output_folder, f'{id_}.original.pt'))
 
             
 if __name__ == '__main__':
