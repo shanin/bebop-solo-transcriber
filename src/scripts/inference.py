@@ -50,7 +50,7 @@ if __name__ == '__main__':
         result = torch.cat([new_result, result[-1][-test_data.last_segment * 48:]], dim=0)
     tokens = result
 
-    output_dir = f'{args.output_dir}/{track_name}'
+    output_dir = f'{args.output_dir}/{args.track}'
     os.makedirs(output_dir, exist_ok=True)
 
     render_midi(
