@@ -28,8 +28,8 @@ def prepare_beats(beats, double_time=False):
                         content[2],
                         (content[2] + content[3]) / 2,
                         content[3],
-                        (content[3] + content[0]) / 2,
-                        content[0],
+                        (content[3] + content[4]) / 2,
+                        content[4],
                     ]
                     bars.append(first_half)
                     bars.append(second_half)
