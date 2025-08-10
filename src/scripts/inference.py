@@ -32,7 +32,7 @@ if __name__ == '__main__':
     else:
         track_fullname = f'{args.track}.original'
 
-    test_track = TrackDataset(f'test/{args.track}/bars')
+    test_track = TrackDataset(f'test/{args.track}/bars', double_time=args.double_time)
     test_data = InferenceDataset(test_track[0], num_consecutive_bars=8)
     test_loader = DataLoader(test_data, batch_size=1, shuffle=False, num_workers=0)
 
