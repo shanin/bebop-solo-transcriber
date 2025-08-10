@@ -71,7 +71,14 @@ def tokens_to_score_midi(tokens,
     
     # Create MIDI file
     midi = pretty_midi.PrettyMIDI(initial_tempo=tempo)
+    
+    # Add time signature (4/4)
+    time_sig = pretty_midi.TimeSignature(numerator=4, denominator=4, time=0.0)
+    midi.time_signature_changes.append(time_sig)
+    
+    # Create piano instrument with treble clef indication
     piano_program = pretty_midi.Instrument(program=0)  # 0 = Acoustic Grand Piano
+    piano_program.name = "Piano (Treble Clef)"
     
     # Create click track if requested
     if add_clicks:
@@ -216,7 +223,14 @@ def tokens_to_performance_midi(tokens,
     
     # Create MIDI file
     midi = pretty_midi.PrettyMIDI()
+    
+    # Add time signature (4/4)
+    time_sig = pretty_midi.TimeSignature(numerator=4, denominator=4, time=0.0)
+    midi.time_signature_changes.append(time_sig)
+    
+    # Create piano instrument with treble clef indication
     piano_program = pretty_midi.Instrument(program=0)  # 0 = Acoustic Grand Piano
+    piano_program.name = "Piano (Treble Clef)"
     
     # Create click track if requested
     if add_clicks:
