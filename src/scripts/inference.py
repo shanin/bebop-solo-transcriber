@@ -58,7 +58,7 @@ if __name__ == '__main__':
         tokens, 
         f'{output_dir}/{track_fullname}.{args.handler}.perf.mid', 
         f'{output_dir}/{track_fullname}.{args.handler}.score.mid', 
-        f'test/{args.track}/raw/{track_fullname}.full.wav', 
+        f'test/{args.track}/raw/{args.track}.full.wav', 
         f'{output_dir}/{track_fullname}.{args.handler}.wav',
         double_time=args.double_time
     )
