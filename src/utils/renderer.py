@@ -5,7 +5,7 @@ import numpy as np
 import soundfile as sf
 import librosa
 
-def prepare_beats(beats):
+def prepare_beats(beats, double_time=False):
     syncpoints = beats[:,0]
     beat_nums = beats[:,1]
     bars = []
@@ -13,8 +13,26 @@ def prepare_beats(beats):
     for i in range(len(syncpoints)):
         if beat_nums[i] == 1:
             if len(content) == 4:
-                content.append(syncpoints[i]) # that's right, should be 1, 2, 3, 4, 1
-                bars.append(content)
+                if not double_time:
+                    content.append(syncpoints[i]) # that's right, should be 1, 2, 3, 4, 1
+                    bars.append(content)
+                else:
+                    first_half = [
+                        content[0],
+                        (content[0] + content[1]) / 2,
+                        content[1],
+                        (content[1] + content[2]) / 2,
+                        content[2],
+                    ]
+                    second_half = [
+                        content[2],
+                        (content[2] + content[3]) / 2,
+                        content[3],
+                        (content[3] + content[0]) / 2,
+                        content[0],
+                    ]
+                    bars.append(first_half)
+                    bars.append(second_half)
             content = []
         content.append(syncpoints[i])
     if len(content) == 4:
@@ -337,9 +355,9 @@ def midi_to_audio_stereo(midi_path, audio_path, output_path, sr=22050):
     sf.write(output_path, stereo.T, sr)
     print(f"Stereo file saved to: {output_path}")
 
-def main(beats_file, tokens, midi_performance_output_file, midi_score_output_file, audio_path, output_path):
+def main(beats_file, tokens, midi_performance_output_file, midi_score_output_file, audio_path, output_path, double_time=False):
     beats = np.loadtxt(beats_file)
-    bars = prepare_beats(beats)
+    bars = prepare_beats(beats, double_time)
     midi = tokens_to_performance_midi(tokens, beats = bars, add_clicks = False)
     midi.write(midi_performance_output_file)
     midi_to_audio_stereo(midi_performance_output_file, audio_path, output_path)
@@ -355,8 +373,8 @@ if __name__ == '__main__':
     parser.add_argument('--midi_score_output_file', type=str, required=True)
     parser.add_argument('--audio_path', type=str, required=True)
     parser.add_argument('--output_path', type=str, required=True)
-
+    parser.add_argument('--double_time', action='store_true', default=False)
 
     args = parser.parse_args()
     tokens = torch.load(args.tokens_file)
-    main(args.beats_file, tokens, args.midi_performance_output_file, args.midi_score_output_file, args.audio_path, args.output_path)
+    main(args.beats_file, tokens, args.midi_performance_output_file, args.midi_score_output_file, args.audio_path, args.output_path, args.double_time)
