@@ -268,9 +268,21 @@ def tokens_to_performance_midi(tokens,
     current_pitch = None
     current_start = None
     current_duration = 0    
+    
+    # Debug: Check array sizes
+    print(f"DEBUG: tokens.shape = {tokens.shape}")
+    print(f"DEBUG: len(beats) = {len(beats)}")
+    if len(beats) > 0:
+        print(f"DEBUG: beats[0] = {beats[0]}")
+        print(f"DEBUG: len(beats[0]) = {len(beats[0])}")
+    
     for bar_idx in range(len(tokens)):
-        
-        
+        # Bounds check for beats array
+        if bar_idx >= len(beats):
+            print(f"ERROR: bar_idx {bar_idx} >= len(beats) {len(beats)}")
+            print(f"Skipping remaining bars from {bar_idx} onwards")
+            break
+            
         # Add clicks if requested
         if add_clicks:
             # Add downbeat click (higher)
