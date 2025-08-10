@@ -38,7 +38,25 @@ def prepare_beats(beats, double_time=False):
     if len(content) == 4:
         beat_len = syncpoints[-1] - syncpoints[-2]
         content.append(syncpoints[-1] + beat_len)
-        bars.append(content)
+        if not double_time:
+            bars.append(content)
+        else:
+            first_half = [
+                content[0],
+                (content[0] + content[1]) / 2,
+                content[1],
+                (content[1] + content[2]) / 2,
+                content[2],
+            ]
+            second_half = [
+                content[2],
+                (content[2] + content[3]) / 2,
+                content[3],
+                (content[3] + content[4]) / 2,
+                content[4],
+            ]
+            bars.append(first_half)
+            bars.append(second_half)
     return bars
 
 
