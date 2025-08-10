@@ -15,6 +15,7 @@ if __name__ == '__main__':
     parser.add_argument('--handler', type=str, required=True)
     parser.add_argument('--output_dir', type=str, required=True)
     parser.add_argument('--model_type', type=str, required=True)
+    parser.add_argument('--double_time', action='store_true', default=False)
     args = parser.parse_args()
     
     if args.model_type == 'model_a':
@@ -25,6 +26,11 @@ if __name__ == '__main__':
         raise ValueError(f'Invalid model type: {args.model_type}')
     model.eval()
     model.to('cpu')
+
+    if args.double_time:
+        track_fullname = f'{args.track}.double_time'
+    else:
+        track_fullname = f'{args.track}.original'
 
     test_track = TrackDataset(f'test/{args.track}/bars')
     test_data = InferenceDataset(test_track[0], num_consecutive_bars=8)
@@ -44,14 +50,15 @@ if __name__ == '__main__':
         result = torch.cat([new_result, result[-1][-test_data.last_segment * 48:]], dim=0)
     tokens = result
 
-    output_dir = f'{args.output_dir}/{args.track}'
+    output_dir = f'{args.output_dir}/{track_name}'
     os.makedirs(output_dir, exist_ok=True)
 
     render_midi(
         f'test/{args.track}/beats/{args.track}.beats.tsv', 
         tokens, 
-        f'{output_dir}/{args.track}.{args.handler}.perf.mid', 
-        f'{output_dir}/{args.track}.{args.handler}.score.mid', 
-        f'test/{args.track}/raw/{args.track}.full.wav', 
-        f'{output_dir}/{args.track}.{args.handler}.wav'
+        f'{output_dir}/{track_fullname}.{args.handler}.perf.mid', 
+        f'{output_dir}/{track_fullname}.{args.handler}.score.mid', 
+        f'test/{args.track}/raw/{track_fullname}.full.wav', 
+        f'{output_dir}/{track_fullname}.{args.handler}.wav',
+        double_time=args.double_time
     )
