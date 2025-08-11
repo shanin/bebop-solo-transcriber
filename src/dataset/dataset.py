@@ -15,7 +15,9 @@ class TrackDataset(Dataset):
         self.source = source
         self.hard_transpose = hard_transpose
         self.rhythm_tokens = RHYTHM_TOKENS
+
         self.all_files = [f for f in sorted(os.listdir(data_dir)) if f.endswith(f'.{source}.pt')]
+
         self.split = split
         self.instrument = 'none'
         if self.split != 'all':

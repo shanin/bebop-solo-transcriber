@@ -35,6 +35,7 @@ if __name__ == '__main__':
         source = 'original'
 
     test_track = TrackDataset(f'test/{args.track}/bars', source=source)
+
     test_data = InferenceDataset(test_track[0], num_consecutive_bars=8)
     test_loader = DataLoader(test_data, batch_size=1, shuffle=False, num_workers=0)
 
