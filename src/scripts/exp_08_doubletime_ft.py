@@ -43,8 +43,7 @@ def main(args):
         dataset_train,
         batch_size=512,
         num_workers=0,
-        sampler=sampler,
-        shuffle=True
+        sampler=sampler
     )
 
     if args.checkpoint is not None:
