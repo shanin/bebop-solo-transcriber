@@ -48,7 +48,7 @@ def main(args):
 
     if args.checkpoint is not None:
         print(f"Loading checkpoint from {args.checkpoint}")
-        model = RhythmScaffoldLightningModule.load_from_checkpoint(args.checkpoint)
+        model = RhythmScaffoldLightningModule.load_from_checkpoint(f'solo_transcriber/{args.checkpoint}/checkpoints/best-model.ckpt')
     else:
         print("No checkpoint provided, training from scratch")
         model = RhythmScaffoldLightningModule(
