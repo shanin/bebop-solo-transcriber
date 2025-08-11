@@ -10,15 +10,14 @@ import numpy as np
 from functools import partial
 
 class TrackDataset(Dataset):
-    def __init__(self, data_dir=None, source: str = 'original', split: str = 'all', hard_transpose: int = 0, double_time: bool = False):
+    def __init__(self, data_dir=None, source: str = 'original', split: str = 'all', hard_transpose: int = 0):
         self.data_dir = data_dir
         self.source = source
         self.hard_transpose = hard_transpose
         self.rhythm_tokens = RHYTHM_TOKENS
-        if double_time:
-            self.all_files = [f for f in sorted(os.listdir(data_dir)) if f.endswith('.double_time.pt')]
-        else:
-            self.all_files = [f for f in sorted(os.listdir(data_dir)) if f.endswith('.original.pt')]
+
+        self.all_files = [f for f in sorted(os.listdir(data_dir)) if f.endswith(f'.{source}.pt')]
+
         self.split = split
         self.instrument = 'none'
         if self.split != 'all':
