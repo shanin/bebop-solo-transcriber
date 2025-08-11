@@ -29,10 +29,12 @@ if __name__ == '__main__':
 
     if args.double_time:
         track_fullname = f'{args.track}.double_time'
+        source = 'double_time'
     else:
         track_fullname = f'{args.track}.original'
+        source = 'original'
 
-    test_track = TrackDataset(f'test/{args.track}/bars', double_time=args.double_time)
+    test_track = TrackDataset(f'test/{args.track}/bars', source=source)
     test_data = InferenceDataset(test_track[0], num_consecutive_bars=8)
     test_loader = DataLoader(test_data, batch_size=1, shuffle=False, num_workers=0)
 
