@@ -2,7 +2,7 @@ import pretty_midi
 import numpy as np
 import pandas as pd
 import argparse
-
+import os
 
 def extract_frame_labels(midi_path, frames_per_second=100, J=5):
     """
