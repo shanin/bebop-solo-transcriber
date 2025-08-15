@@ -3,8 +3,17 @@ import numpy as np
 import pandas as pd
 import argparse
 import os
+from src.wjd.wjd import prepare_sample
 
-def extract_frame_labels(midi_path, frames_per_second=100, J=5):
+# Piano key range: MIDI 21 (A0) to MIDI 108 (C8) = 88 keys
+MIN_MIDI = 21
+MAX_MIDI = 108
+NUM_PIANO_KEYS = 88
+
+
+
+
+def extract_frame_labels_filosax(midi_path, frames_per_second=100, J=5):
     """
     Extract quantized frame representations from MIDI file.
     
@@ -19,10 +28,6 @@ def extract_frame_labels(midi_path, frames_per_second=100, J=5):
               - frames: Binary activation labels (shape: num_frames x 88)
               Each array covers 88 piano keys (MIDI 21-108: A0 to C8)
     """
-    # Piano key range: MIDI 21 (A0) to MIDI 108 (C8) = 88 keys
-    MIN_MIDI = 21
-    MAX_MIDI = 108
-    NUM_PIANO_KEYS = 88
     
     # Frame length in seconds
     frame_len = 1.0 / frames_per_second
@@ -109,6 +114,82 @@ def extract_frame_labels(midi_path, frames_per_second=100, J=5):
         'frames': note_frames
     }
 
+def extract_frame_labels_wjd(idx, frames_per_second=100, J=5):
+    # Frame length in seconds
+    frame_len = 1.0 / frames_per_second
+
+    melid = int(idx.split('WJD')[1])
+    data = prepare_sample(melid)
+    melody_df = data['melody_df']
+    
+    total_duration = melody_df.iloc[-1]['onset'] + melody_df.iloc[-1]['duration']
+    num_frames = int(np.ceil(total_duration * frames_per_second))
+    onset_frames = np.zeros((num_frames, NUM_PIANO_KEYS), dtype=np.float32)
+    offset_frames = np.zeros((num_frames, NUM_PIANO_KEYS), dtype=np.float32)
+    note_frames = np.zeros((num_frames, NUM_PIANO_KEYS), dtype=np.float32)
+
+    # Process each note
+    for _, note in melody_df.iterrows():
+
+        # Skip notes outside piano range
+        if note['pitch'] < MIN_MIDI or note['pitch'] > MAX_MIDI:
+            continue
+            
+        # Convert MIDI pitch to piano key index (0-87)
+        piano_key_idx = int(note.pitch - MIN_MIDI)
+
+        onset_time = note['onset']
+        offset_time = note['onset'] + note['duration']
+        onset_frame = int(onset_time * frames_per_second)
+        offset_frame = int(offset_time * frames_per_second)
+        
+        # Set binary frames between onset and offset
+        onset_frame_bounded = max(0, min(onset_frame, num_frames - 1))
+        offset_frame_bounded = max(0, min(offset_frame, num_frames - 1))
+        for frame_idx in range(onset_frame_bounded, min(offset_frame_bounded, num_frames)):
+            note_frames[frame_idx, piano_key_idx] = 1.0
+        
+        # Create regression targets for onset
+        for frame_idx in range(max(0, onset_frame - J), min(num_frames, onset_frame + J + 1)):
+            # Calculate frame center time
+            frame_center_time = (frame_idx + 0.5) * frame_len
+            
+            # Distance from frame center to onset time
+            d_i = abs(frame_center_time - onset_time)
+            
+            # Regression target: 1 - abs(d_i) / (J * frame_len)
+            if d_i <= J * frame_len:
+                target_value = 1.0 - d_i / (J * frame_len)
+                # Take maximum if multiple onsets affect the same frame
+                onset_frames[frame_idx, piano_key_idx] = max(
+                    onset_frames[frame_idx, piano_key_idx], 
+                    target_value
+                )
+        
+        # Create regression targets for offset
+        for frame_idx in range(max(0, offset_frame - J), min(num_frames, offset_frame + J + 1)):
+            # Calculate frame center time
+            frame_center_time = (frame_idx + 0.5) * frame_len
+            
+            # Distance from frame center to offset time
+            d_i = abs(frame_center_time - offset_time)
+            
+            # Regression target: 1 - abs(d_i) / (J * frame_len)
+            if d_i <= J * frame_len:
+                target_value = 1.0 - d_i / (J * frame_len)
+                # Take maximum if multiple offsets affect the same frame
+                offset_frames[frame_idx, piano_key_idx] = max(
+                    offset_frames[frame_idx, piano_key_idx], 
+                    target_value
+                )
+    
+    return {
+        'onset': onset_frames,
+        'offset': offset_frames,
+        'frames': note_frames
+    }
+
+    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -116,17 +197,30 @@ if __name__ == "__main__":
     parser.add_argument('--frames_per_second', type=int, default=100)
     parser.add_argument('--J', type=int, default=5)
     parser.add_argument('--output_folder', type=str, required=True)
+    parser.add_argument('--dataset', type=str, required=True, choices=['wjd', 'filosax'])
     args = parser.parse_args()
     
     data_list = pd.read_csv(args.data_list)
     
-    for _, row in data_list.iterrows():
-        idx = row['example_id']
-        midi_path = row['midi_path']
-        output_file = os.path.join(args.output_folder, idx + ".frame_labels.npy")
-        try:
-            labels = extract_frame_labels(midi_path, J=args.J)
-            np.save(output_file, labels)
-        except Exception as e:
-            print(f"Error processing MIDI file: {e}")
-            continue
+    if args.dataset == 'filosax':
+        for _, row in data_list.iterrows():
+            idx = row['example_id']
+            midi_path = row['midi_path']
+            output_file = os.path.join(args.output_folder, idx + ".frame_labels.npy")
+            try:
+                labels = extract_frame_labels_filosax(midi_path, J=args.J)
+                np.save(output_file, labels)
+            except Exception as e:
+                print(f"Error processing MIDI file: {e}")
+                continue
+
+    elif args.dataset == 'wjd':
+        for _, row in data_list.iterrows():
+            idx = row['example_id']
+            output_file = os.path.join(args.output_folder, idx + ".frame_labels.npy")
+            try:
+                labels = extract_frame_labels_wjd(idx, J=args.J)
+                np.save(output_file, labels)
+            except Exception as e:
+                print(f"Error processing MIDI file: {e}")
+                continue
