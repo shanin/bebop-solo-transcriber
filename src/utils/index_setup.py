@@ -12,6 +12,7 @@ if __name__ == '__main__':
     parser.add_argument('--omnibook_path', type=str)
     parser.add_argument('--output_dir', type=str, required=True)
     parser.add_argument('--data_path', type=str)
+    parser.add_argument('--filosax_midi_path', type=str)
     args = parser.parse_args()
 
     if args.dataset == 'inference':
@@ -50,6 +51,7 @@ if __name__ == '__main__':
                     'backing_pd': f'{args.filosax_path}/Backing/{song:02d}/Piano_Drums.wav',
                     'backing_bd': f'{args.filosax_path}/Backing/{song:02d}/Bass_Drums.wav',
                     'mix_path': np.nan,
+                    'midi_path': f'{args.filosax_midi_path}/{id_}.Sax.mid',
                 })
         df = pd.DataFrame(lines)
         df.to_csv(f'{args.output_dir}/index_filosax.csv', index=False)
@@ -71,6 +73,7 @@ if __name__ == '__main__':
                         'backing_pd': np.nan,
                         'backing_bd': np.nan,
                         'mix_path': np.nan,
+                        'midi_path': f'{args.filosax_midi_path}/{id_}.Sax.mid',
                     })
             df = pd.DataFrame(lines)
             df.to_csv(f'{args.output_dir}/index_uvr_filosax_L{relative_sax_loudness}.csv', index=False)
