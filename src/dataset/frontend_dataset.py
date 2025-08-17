@@ -48,8 +48,8 @@ class FrontendTrackDataset(Dataset):
     def __getitem__(self, idx):
         file_path_x = os.path.join(self.data_dir_x, self.files_x[idx])
         file_path_y = os.path.join(self.data_dir_y, self.files_y[idx])
-        x = np.load(file_path_x)
-        y = np.load(file_path_y)
+        x = np.load(file_path_x, allow_pickle=True)
+        y = np.load(file_path_y, allow_pickle=True)
         assert file_path_x.split('.')[-1] == file_path_y.split('.')[-1], f"File names do not match: {file_path_x} and {file_path_y}"
         length = min(x.shape[0], y.shape[0])
         x = x[:length]
