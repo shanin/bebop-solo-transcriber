@@ -37,8 +37,8 @@ class FrontendTrackDataset(Dataset):
             self.files_x = self.xr_test_files_x
             self.files_y = self.xr_test_files_y
         elif self.split == 'all':
-            self.files_x = self.all_files_x
-            self.files_y = self.all_files_y
+            self.files_x = self.all_x_files 
+            self.files_y = self.all_y_files
         else:
             assert False, f"Invalid split: {self.split}"
 
