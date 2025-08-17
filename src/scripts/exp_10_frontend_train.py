@@ -1,4 +1,4 @@
-from src.dataset.frontend_dataset import FrontendTrackDataset, FrontendSegmentDataset
+from src.dataset.frontend_dataset import FilosaxFrontendTrackDataset, FrontendSegmentDataset, FrontendTrackDataset
 from torch.utils.data import DataLoader
 from src.model.crnn_frontend import Regress_onset_offset_frame_velocity_CRNN as frontend
 import pytorch_lightning as pl
@@ -7,6 +7,7 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 import argparse
 import os
 import wandb
+from torch.utils.data import ConcatDataset, WeightedRandomSampler
 
 
 def main(args):
@@ -15,14 +16,14 @@ def main(args):
     wjd_dir_x = os.path.join(args.data_dir_x, 'wjd')
     wjd_dir_y = os.path.join(args.data_dir_y, 'wjd')
 
-    filosax_train = FrontendTrackDataset(data_dir_x=filosax_dir_x, data_dir_y=filosax_dir_y, split = 'train')
+    filosax_train = FilosaxFrontendTrackDataset(data_dir_x=filosax_dir_x, data_dir_y=filosax_dir_y, split = 'train')
     filosax_train_segments = FrontendSegmentDataset(filosax_train, num_consecutive_frames = 1000)
 
-    filosax_val = FrontendTrackDataset(data_dir_x=filosax_dir_x, data_dir_y=filosax_dir_y, split = 'val')
+    filosax_val = FilosaxFrontendTrackDataset(data_dir_x=filosax_dir_x, data_dir_y=filosax_dir_y, split = 'val')
     filosax_val_segments = FrontendSegmentDataset(filosax_val, num_consecutive_frames = 1000)
     filosax_val_loader = DataLoader(filosax_val_segments, batch_size=512, shuffle=False, num_workers=0)
 
-    filosax_test = FrontendTrackDataset(data_dir_x=filosax_dir_x, data_dir_y=filosax_dir_y, split = 'test')
+    filosax_test = FilosaxFrontendTrackDataset(data_dir_x=filosax_dir_x, data_dir_y=filosax_dir_y, split = 'test')
     filosax_test_segments = FrontendSegmentDataset(filosax_test, num_consecutive_frames = 1000)
     filosax_test_loader = DataLoader(filosax_test_segments, batch_size=512, shuffle=False, num_workers=0)
 

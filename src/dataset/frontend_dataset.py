@@ -63,6 +63,19 @@ class FrontendTrackDataset(Dataset):
             'frames': y['frames']
         }
 
+class FilosaxFrontendTrackDataset(FrontendTrackDataset):
+    def prepare_splits(self):
+        self.test_files_x = [f'FS{i}_46.melspec.npy' for i in range(1, 6)] + \
+                    [f'FS{i}_47.melspec.npy' for i in range(1, 6)] + \
+                    [f'FS{i}_48.melspec.npy' for i in range(1, 6)]
+        self.val_files = [f'FS{i}_45.melspec.npy' for i in range(1, 6)]
+        self.train_files_x = [f for f in self.all_x_files if f not in self.test_files_x and f not in self.val_files_x and f.endswith(f'.melspec.npy')]
+        self.test_files_y = [f'FS{i}_46.frame_labels.npy' for i in range(1, 6)] + \
+                    [f'FS{i}_47.frame_labels.npy' for i in range(1, 6)] + \
+                    [f'FS{i}_48.frame_labels.npy' for i in range(1, 6)]
+        self.val_files_y = [f'FS{i}_45.frame_labels.npy' for i in range(1, 6)]
+        self.train_files_y = [f for f in self.all_y_files if f not in self.test_files_y and f not in self.val_files_y and f.endswith(f'.frame_labels.npy')]
+
 
 class FrontendSegmentDataset(Dataset):
     def __init__(self, dataset, num_consecutive_frames: int, use_cache: bool = True):
