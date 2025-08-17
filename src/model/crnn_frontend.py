@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
+from pytorch_lightning.loggers import WandbLogger
 
 from torchlibrosa.stft import Spectrogram, LogmelFilterBank
 
@@ -256,6 +257,9 @@ class MusicTranscriptionLightning(pl.LightningModule):
     ):
         super().__init__()
         
+        # Optimize for A100 Tensor Cores
+        torch.set_float32_matmul_precision('medium')
+        
         # Save hyperparameters
         self.save_hyperparameters()
         
@@ -496,3 +500,88 @@ class MusicTranscriptionLightning(pl.LightningModule):
             'frame_pred': outputs['frame_output'],
             'velocity_pred': outputs['velocity_output']
         }
+    
+    @staticmethod
+    def create_wandb_logger(project_name="bebop-solo-transcriber", experiment_name="crnn_training", save_dir="wandb_logs/"):
+        """
+        Create a properly configured WandbLogger for PyTorch Lightning.
+        
+        Args:
+            project_name (str): W&B project name
+            experiment_name (str): W&B run name
+            save_dir (str): Local directory to save logs
+            
+        Returns:
+            WandbLogger: Configured logger for PyTorch Lightning
+        """
+        return WandbLogger(
+            project=project_name,
+            name=experiment_name,
+            save_dir=save_dir,
+            offline=False,
+            log_model=True,  # Log model checkpoints to W&B
+            tags=["crnn", "music-transcription", "onset-offset", "regression"],
+            notes="Training CRNN with regression-based onset/offset detection for music transcription"
+        )
+    
+    @staticmethod
+    def create_trainer_with_wandb(
+        project_name="bebop-solo-transcriber", 
+        experiment_name="crnn_training",
+        max_epochs=100,
+        precision=16,
+        accumulate_grad_batches=4,
+        patience=10
+    ):
+        """
+        Create a complete trainer setup with WandbLogger and callbacks.
+        
+        Args:
+            project_name (str): W&B project name
+            experiment_name (str): W&B run name  
+            max_epochs (int): Maximum training epochs
+            precision (int): Numerical precision (16 for half precision)
+            accumulate_grad_batches (int): Gradient accumulation steps
+            patience (int): Early stopping patience
+            
+        Returns:
+            tuple: (trainer, wandb_logger) configured for training
+        """
+        from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+        
+        # Create WandbLogger
+        wandb_logger = MusicTranscriptionLightning.create_wandb_logger(
+            project_name=project_name,
+            experiment_name=experiment_name
+        )
+        
+        # Callbacks
+        early_stop_callback = EarlyStopping(
+            monitor="val_loss",
+            patience=patience,
+            mode="min",
+            verbose=True
+        )
+        
+        checkpoint_callback = ModelCheckpoint(
+            monitor="val_loss",
+            save_top_k=1,
+            mode="min",
+            filename="best-model-{epoch:02d}-{val_loss:.2f}",
+            save_last=True
+        )
+        
+        # Trainer with memory optimizations
+        trainer = pl.Trainer(
+            max_epochs=max_epochs,
+            accelerator='gpu' if torch.cuda.is_available() else 'cpu',
+            precision=precision,
+            accumulate_grad_batches=accumulate_grad_batches,
+            logger=wandb_logger,  # Use proper WandbLogger
+            callbacks=[early_stop_callback, checkpoint_callback],
+            log_every_n_steps=10,
+            gradient_clip_val=1.0,
+            enable_progress_bar=True
+        )
+        
+        return trainer, wandb_logger
