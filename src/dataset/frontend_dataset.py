@@ -49,12 +49,16 @@ class FrontendTrackDataset(Dataset):
         file_path_x = os.path.join(self.data_dir_x, self.files_x[idx])
         file_path_y = os.path.join(self.data_dir_y, self.files_y[idx])
         x = np.load(file_path_x, allow_pickle=True)
-        y = np.load(file_path_y, allow_pickle=True)
+        y = np.load(file_path_y, allow_pickle=True).item()
         assert file_path_x.split('.')[-1] == file_path_y.split('.')[-1], f"File names do not match: {file_path_x} and {file_path_y}"
-        length = min(x.shape[0], y.shape[0])
+        length = min(x.shape[0], y['onset'].shape[0], y['offset'].shape[0], y['frames'].shape[0])
         x = x[:length]
-        y = y[:length]
+        y['onset'] = y['onset'][:length]
+        y['offset'] = y['offset'][:length]
+        y['frames'] = y['frames'][:length]
         return {
-            'x': x,
-            'y': y
+            'mel_spec': x,
+            'onset': y['onset'],
+            'offset': y['offset'],
+            'frames': y['frames']
         }
