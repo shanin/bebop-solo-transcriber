@@ -366,8 +366,9 @@ class MusicTranscriptionLightning(pl.LightningModule):
             'frames': batch['y']['frames']   # (batch, time, 88)
         }
         
-        # Forward pass
-        outputs = self(mel_spec)
+        # Forward pass with gradient checkpointing to save memory
+        with torch.cuda.amp.autocast():  # Use mixed precision
+            outputs = self(mel_spec)
         
         # Calculate losses
         losses = self._calculate_losses(outputs, targets)
