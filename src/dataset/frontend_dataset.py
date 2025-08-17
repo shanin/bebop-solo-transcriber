@@ -68,7 +68,7 @@ class FilosaxFrontendTrackDataset(FrontendTrackDataset):
         self.test_files_x = [f'FS{i}_46.melspec.npy' for i in range(1, 6)] + \
                     [f'FS{i}_47.melspec.npy' for i in range(1, 6)] + \
                     [f'FS{i}_48.melspec.npy' for i in range(1, 6)]
-        self.val_files = [f'FS{i}_45.melspec.npy' for i in range(1, 6)]
+        self.val_files_x = [f'FS{i}_45.melspec.npy' for i in range(1, 6)]
         self.train_files_x = [f for f in self.all_x_files if f not in self.test_files_x and f not in self.val_files_x and f.endswith(f'.melspec.npy')]
         self.test_files_y = [f'FS{i}_46.frame_labels.npy' for i in range(1, 6)] + \
                     [f'FS{i}_47.frame_labels.npy' for i in range(1, 6)] + \
