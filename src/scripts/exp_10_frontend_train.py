@@ -17,18 +17,18 @@ def main(args):
     wjd_dir_y = os.path.join(args.data_dir_y, 'wjd')
 
     filosax_train = FilosaxFrontendTrackDataset(data_dir_x=filosax_dir_x, data_dir_y=filosax_dir_y, split = 'train')
-    filosax_train_segments = FrontendSegmentDataset(filosax_train, num_consecutive_frames = 1000)
+    filosax_train_segments = FrontendSegmentDataset(filosax_train, num_consecutive_frames = args.frames, use_cache = False)
 
     filosax_val = FilosaxFrontendTrackDataset(data_dir_x=filosax_dir_x, data_dir_y=filosax_dir_y, split = 'val')
-    filosax_val_segments = FrontendSegmentDataset(filosax_val, num_consecutive_frames = 1000)
-    filosax_val_loader = DataLoader(filosax_val_segments, batch_size=512, shuffle=False, num_workers=0)
+    filosax_val_segments = FrontendSegmentDataset(filosax_val, num_consecutive_frames = args.frames, use_cache = False)
+    filosax_val_loader = DataLoader(filosax_val_segments, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
     filosax_test = FilosaxFrontendTrackDataset(data_dir_x=filosax_dir_x, data_dir_y=filosax_dir_y, split = 'test')
-    filosax_test_segments = FrontendSegmentDataset(filosax_test, num_consecutive_frames = 1000)
-    filosax_test_loader = DataLoader(filosax_test_segments, batch_size=512, shuffle=False, num_workers=0)
+    filosax_test_segments = FrontendSegmentDataset(filosax_test, num_consecutive_frames = args.frames, use_cache = False)
+    filosax_test_loader = DataLoader(filosax_test_segments, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
     wjd_train = FrontendTrackDataset(data_dir_x=wjd_dir_x, data_dir_y=wjd_dir_y)
-    wjd_train_segments = FrontendSegmentDataset(wjd_train, num_consecutive_frames = 1000)
+    wjd_train_segments = FrontendSegmentDataset(wjd_train, num_consecutive_frames = args.frames, use_cache = False)
 
     dataset_train = ConcatDataset([filosax_train_segments, wjd_train_segments])
     len_filosax = len(filosax_train_segments)
@@ -46,7 +46,7 @@ def main(args):
 
     filosax_train_loader = DataLoader(
         dataset_train,
-        batch_size=512,
+        batch_size=BATCH_SIZE,
         num_workers=0,
         sampler=sampler
     )
@@ -72,14 +72,18 @@ def main(args):
 
     trainer = pl.Trainer(
         max_epochs=100,
-        logger=wandb_logger,
         accelerator='gpu' if torch.cuda.is_available() else 'cpu',
+        logger=wandb_logger,
         callbacks=[early_stop_callback, checkpoint_callback]
     )
 
     trainer.fit(model, filosax_train_loader, filosax_val_loader)
 
+    trainer.fit(model, filosax_train_loader, filosax_val_loader)
+
     trainer.test(model, filosax_test_loader)
+
+    wandb_logger.finish()
 
     print(checkpoint_callback.best_model_path)
 
@@ -89,5 +93,7 @@ if __name__ == "__main__":
     parser.add_argument("--experiment_name", type=str, default="default")
     parser.add_argument("--data_dir_x", type=str, required=True)
     parser.add_argument("--data_dir_y", type=str, required=True)
+    parser.add_argument("--frames", type=int, default=500)
+    parser.add_argument("--batch_size", type=int, default=16)
     args = parser.parse_args()
     main(args)
