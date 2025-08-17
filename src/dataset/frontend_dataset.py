@@ -65,17 +65,14 @@ class FrontendTrackDataset(Dataset):
 
 
 class FrontendSegmentDataset(Dataset):
-    def __init__(self, dataset, num_consecutive_frames: int, random_transposition: bool = False, use_cache: bool = True, pitch_shift: bool = False):
+    def __init__(self, dataset, num_consecutive_frames: int, use_cache: bool = True):
         """
         Args:
             dataset: FrontendTrackDataset object
             use_cache: bool
-            pitch_shift: bool - if True, the pitch of the segment is shifted by -1, 0 or 1 bin (1 semitone = 3 bins)
         """
         self.dataset = dataset
         self.num_consecutive_frames = num_consecutive_frames
-        self.random_transposition = random_transposition
-        self.pitch_shift = pitch_shift
         self.index = []
         self.cache = {}
         self.use_cache = use_cache
@@ -99,12 +96,12 @@ class FrontendSegmentDataset(Dataset):
             track = self.dataset[track_idx]
         segment = {
             'x': {
-                'mel_spec': track['mel_spec'][frame_idx:frame_idx + self.num_consecutive_frames].clone(),
+                'mel_spec': track['mel_spec'][frame_idx:frame_idx + self.num_consecutive_frames],
             },
             'y': {
-                'onset': track['onset'][frame_idx:frame_idx + self.num_consecutive_frames].clone(),
-                'offset': track['offset'][frame_idx:frame_idx + self.num_consecutive_frames].clone(),
-                'frames': track['frames'][frame_idx:frame_idx + self.num_consecutive_frames].clone(),
+                'onset': track['onset'][frame_idx:frame_idx + self.num_consecutive_frames],
+                'offset': track['offset'][frame_idx:frame_idx + self.num_consecutive_frames],
+                'frames': track['frames'][frame_idx:frame_idx + self.num_consecutive_frames],
             },
         }
         return segment
