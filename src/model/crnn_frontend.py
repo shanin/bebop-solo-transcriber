@@ -357,11 +357,11 @@ class MusicTranscriptionLightning(pl.LightningModule):
         """Training step."""
         
         # Unpack batch
-        mel_spec = batch['mel_spec']    # (batch, 1, time, mel_bins)
+        mel_spec = batch['x']['mel_spec']    # (batch, 1, time, mel_bins)
         targets = {
-            'onset': batch['onset'],    # (batch, time, 88)
-            'offset': batch['offset'],  # (batch, time, 88)
-            'frames': batch['frames']   # (batch, time, 88)
+            'onset': batch['y']['onset'],    # (batch, time, 88)
+            'offset': batch['y']['offset'],  # (batch, time, 88)
+            'frames': batch['y']['frames']   # (batch, time, 88)
         }
         
         # Forward pass
@@ -383,11 +383,11 @@ class MusicTranscriptionLightning(pl.LightningModule):
         """Validation step."""
         
         # Unpack batch
-        mel_spec = batch['mel_spec']
+        mel_spec = batch['x']['mel_spec']
         targets = {
-            'onset': batch['onset'],
-            'offset': batch['offset'],
-            'frames': batch['frames']
+            'onset': batch['y']['onset'],
+            'offset': batch['y']['offset'],
+            'frames': batch['y']['frames']
         }
         
         # Forward pass
@@ -417,11 +417,11 @@ class MusicTranscriptionLightning(pl.LightningModule):
         """Test step."""
         
         # Unpack batch
-        mel_spec = batch['mel_spec']
+        mel_spec = batch['x']['mel_spec']
         targets = {
-            'onset': batch['onset'],
-            'offset': batch['offset'],
-            'frames': batch['frames']
+            'onset': batch['y']['onset'],
+            'offset': batch['y']['offset'],
+            'frames': batch['y']['frames']
         }
         
         # Forward pass
@@ -483,7 +483,7 @@ class MusicTranscriptionLightning(pl.LightningModule):
     def predict_step(self, batch, batch_idx):
         """Prediction step for inference."""
         
-        mel_spec = batch['mel_spec']
+        mel_spec = batch['x']['mel_spec']
         outputs = self(mel_spec)
         
         return {
