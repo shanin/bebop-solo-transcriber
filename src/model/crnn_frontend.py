@@ -257,9 +257,6 @@ class MusicTranscriptionLightning(pl.LightningModule):
     ):
         super().__init__()
         
-        # Optimize for A100 Tensor Cores
-        torch.set_float32_matmul_precision('medium')
-        
         # Save hyperparameters
         self.save_hyperparameters()
         
@@ -529,8 +526,6 @@ class MusicTranscriptionLightning(pl.LightningModule):
         project_name="bebop-solo-transcriber", 
         experiment_name="crnn_training",
         max_epochs=100,
-        precision=32,
-        accumulate_grad_batches=4,
         patience=10
     ):
         """
@@ -540,8 +535,6 @@ class MusicTranscriptionLightning(pl.LightningModule):
             project_name (str): W&B project name
             experiment_name (str): W&B run name  
             max_epochs (int): Maximum training epochs
-            precision (int): Numerical precision (16 for half precision)
-            accumulate_grad_batches (int): Gradient accumulation steps
             patience (int): Early stopping patience
             
         Returns:
@@ -575,8 +568,6 @@ class MusicTranscriptionLightning(pl.LightningModule):
         trainer = pl.Trainer(
             max_epochs=max_epochs,
             accelerator='gpu' if torch.cuda.is_available() else 'cpu',
-            precision=precision,
-            accumulate_grad_batches=accumulate_grad_batches,
             logger=wandb_logger,  # Use proper WandbLogger
             callbacks=[early_stop_callback, checkpoint_callback],
             log_every_n_steps=10,
