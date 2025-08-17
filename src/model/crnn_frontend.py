@@ -367,7 +367,8 @@ class MusicTranscriptionLightning(pl.LightningModule):
         }
         
         # Forward pass with gradient checkpointing to save memory
-        with torch.cuda.amp.autocast():  # Use mixed precision
+        #with torch.cuda.amp.autocast():  # Use mixed precision
+        with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
             outputs = self(mel_spec)
         
         # Calculate losses
