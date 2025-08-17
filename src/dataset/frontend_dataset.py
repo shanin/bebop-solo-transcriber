@@ -62,3 +62,49 @@ class FrontendTrackDataset(Dataset):
             'offset': y['offset'],
             'frames': y['frames']
         }
+
+
+class FrontendSegmentDataset(Dataset):
+    def __init__(self, dataset, num_consecutive_frames: int, random_transposition: bool = False, use_cache: bool = True, pitch_shift: bool = False):
+        """
+        Args:
+            dataset: FrontendTrackDataset object
+            use_cache: bool
+            pitch_shift: bool - if True, the pitch of the segment is shifted by -1, 0 or 1 bin (1 semitone = 3 bins)
+        """
+        self.dataset = dataset
+        self.num_consecutive_frames = num_consecutive_frames
+        self.random_transposition = random_transposition
+        self.pitch_shift = pitch_shift
+        self.index = []
+        self.cache = {}
+        self.use_cache = use_cache
+        for track_idx, track in enumerate(self.dataset):
+            num_frames = track['mel_spec'].shape[0]
+            for i in range(0, num_frames - self.num_consecutive_frames + 1, self.num_consecutive_frames):
+                self.index.append((track_idx, i))
+            if self.use_cache:
+                self.cache[track_idx] = track
+    
+    def __len__(self):
+        return len(self.index)
+
+    def __getitem__(self, idx):
+        track_idx, frame_idx = self.index[idx]
+        if self.use_cache:
+            if track_idx not in self.cache:
+                self.cache[track_idx] = self.dataset[track_idx]
+            track = self.cache[track_idx]
+        else:
+            track = self.dataset[track_idx]
+        segment = {
+            'x': {
+                'mel_spec': track['mel_spec'][frame_idx:frame_idx + self.num_consecutive_frames].clone(),
+            },
+            'y': {
+                'onset': track['onset'][frame_idx:frame_idx + self.num_consecutive_frames].clone(),
+                'offset': track['offset'][frame_idx:frame_idx + self.num_consecutive_frames].clone(),
+                'frames': track['frames'][frame_idx:frame_idx + self.num_consecutive_frames].clone(),
+            },
+        }
+        return segment
