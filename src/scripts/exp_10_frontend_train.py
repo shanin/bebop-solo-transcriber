@@ -1,6 +1,6 @@
 from src.dataset.frontend_dataset import FilosaxFrontendTrackDataset, FrontendSegmentDataset, FrontendTrackDataset
 from torch.utils.data import DataLoader
-from src.model.crnn_frontend import Regress_onset_offset_frame_velocity_CRNN as frontend
+from src.model.crnn_frontend import MusicTranscriptionLightning as frontend
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
