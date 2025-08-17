@@ -1,0 +1,60 @@
+from torch.utils.data import Dataset
+import torch
+
+import os
+import json
+from tqdm import tqdm
+from torch.utils.data import Sampler
+from typing import Iterator, List
+import numpy as np
+from functools import partial
+
+class FrontendTrackDataset(Dataset):
+    def __init__(self, data_dir_x=None, data_dir_y=None,  split: str = 'all'):
+        self.data_dir_x = data_dir_x
+        self.data_dir_y = data_dir_y
+
+        self.all_x_files = [f for f in sorted(os.listdir(data_dir_x)) if f.endswith(f'.melspec.npy')]
+        self.all_y_files = [f for f in sorted(os.listdir(data_dir_y)) if f.endswith(f'.frame_labels.npy')]
+
+        self.split = split
+        self.instrument = 'none'
+        if self.split != 'all':
+            self.prepare_splits()
+        self.prepare_file_list()
+
+    def prepare_file_list(self):
+        if self.split == 'train':
+            self.files_x = self.train_files_x
+            self.files_y = self.train_files_y
+        elif self.split == 'val':
+            self.files_x = self.val_files_x
+            self.files_y = self.val_files_y
+        elif self.split == 'test':
+            self.files_x = self.test_files_x
+            self.files_y = self.test_files_y
+        elif self.split == 'xr_test':
+            self.files_x = self.xr_test_files_x
+            self.files_y = self.xr_test_files_y
+        elif self.split == 'all':
+            self.files_x = self.all_files_x
+            self.files_y = self.all_files_y
+        else:
+            assert False, f"Invalid split: {self.split}"
+
+    def __len__(self):
+        return len(self.files_x)
+
+    def __getitem__(self, idx):
+        file_path_x = os.path.join(self.data_dir_x, self.files_x[idx])
+        file_path_y = os.path.join(self.data_dir_y, self.files_y[idx])
+        x = np.load(file_path_x)
+        y = np.load(file_path_y)
+        assert file_path_x.split('.')[-1] == file_path_y.split('.')[-1], f"File names do not match: {file_path_x} and {file_path_y}"
+        length = min(x.shape[0], y.shape[0])
+        x = x[:length]
+        y = y[:length]
+        return {
+            'x': x,
+            'y': y
+        }
