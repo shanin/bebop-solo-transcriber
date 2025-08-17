@@ -46,7 +46,7 @@ def main(args):
 
     filosax_train_loader = DataLoader(
         dataset_train,
-        batch_size=BATCH_SIZE,
+        batch_size=args.batch_size,
         num_workers=0,
         sampler=sampler
     )
