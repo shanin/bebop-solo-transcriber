@@ -191,7 +191,7 @@ class Regress_onset_offset_frame_velocity_CRNN(nn.Module):
     def forward(self, x):
         """
         Args:
-          x: (batch_size, 1, time_steps, mel_bins = 229)
+          x: (batch_size, time_steps, mel_bins = 229)
 
         Outputs:
           output_dict: dict, {
@@ -201,6 +201,8 @@ class Regress_onset_offset_frame_velocity_CRNN(nn.Module):
             'velocity_output': (batch_size, time_steps, classes_num)
           }
         """
+
+        x = x.unsqueeze(1)
 
         x = x.transpose(1, 3)
         x = self.bn0(x)
