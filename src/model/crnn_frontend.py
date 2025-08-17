@@ -154,7 +154,7 @@ class AcousticModelCRnn8Dropout(nn.Module):
         
         (x, _) = self.gru(x)
         x = F.dropout(x, p=0.5, training=self.training, inplace=False)
-        output = self.fc(x)  # Return logits for BCEWithLogits loss
+        output = torch.sigmoid(self.fc(x))
         return output
 
 
@@ -218,19 +218,14 @@ class Regress_onset_offset_frame_velocity_CRNN(nn.Module):
         x = torch.cat((reg_onset_output, (reg_onset_output ** 0.5) * velocity_output.detach()), dim=2)
         (x, _) = self.reg_onset_gru(x)
         x = F.dropout(x, p=0.5, training=self.training, inplace=False)
-        reg_onset_output = self.reg_onset_fc(x)  # Return logits
+        reg_onset_output = torch.sigmoid(self.reg_onset_fc(x))
         """(batch_size, time_steps, classes_num)"""
 
         # Use onsets and offsets to condition frame-wise classification
-        # Apply sigmoid for conditioning but keep original logits for loss
-        reg_onset_sigmoid = torch.sigmoid(reg_onset_output.detach())
-        reg_offset_sigmoid = torch.sigmoid(reg_offset_output.detach())
-        frame_sigmoid = torch.sigmoid(frame_output.detach())
-        
-        x = torch.cat((frame_sigmoid, reg_onset_sigmoid, reg_offset_sigmoid), dim=2)
+        x = torch.cat((frame_output, reg_onset_output.detach(), reg_offset_output.detach()), dim=2)
         (x, _) = self.frame_gru(x)
         x = F.dropout(x, p=0.5, training=self.training, inplace=False)
-        frame_output = self.frame_fc(x)  # Return logits
+        frame_output = torch.sigmoid(self.frame_fc(x))  # (batch_size, time_steps, classes_num)
         """(batch_size, time_steps, classes_num)"""
 
         output_dict = {
@@ -304,17 +299,17 @@ class MusicTranscriptionLightning(pl.LightningModule):
         offset_target = targets['offset']   # (batch, time, 88)
         frame_target = targets['frames']    # (batch, time, 88)
         
-        # Binary cross-entropy with logits for onset/offset regression targets (autocast-safe)
-        onset_loss = F.binary_cross_entropy_with_logits(onset_pred, onset_target)
-        offset_loss = F.binary_cross_entropy_with_logits(offset_pred, offset_target)
+        # Binary cross-entropy for onset/offset regression targets
+        onset_loss = F.binary_cross_entropy(onset_pred, onset_target)
+        offset_loss = F.binary_cross_entropy(offset_pred, offset_target)
         
-        # Binary cross-entropy with logits for frame-wise classification (autocast-safe)
-        frame_loss = F.binary_cross_entropy_with_logits(frame_pred, frame_target)
+        # Binary cross-entropy for frame-wise classification
+        frame_loss = F.binary_cross_entropy(frame_pred, frame_target)
         
-        # Binary cross-entropy with logits for velocity prediction (autocast-safe)
+        # Binary cross-entropy for velocity prediction
         # Create velocity targets based on frame activity
         velocity_target = frame_target  # Simple approach: velocity = frame activity
-        velocity_loss = F.binary_cross_entropy_with_logits(velocity_pred, velocity_target)
+        velocity_loss = F.binary_cross_entropy(velocity_pred, velocity_target)
         
         # Total weighted loss
         total_loss = (
@@ -336,11 +331,10 @@ class MusicTranscriptionLightning(pl.LightningModule):
         """Calculate evaluation metrics."""
         
         # Extract predictions and targets
-        frame_logits = outputs['frame_output']
+        frame_pred = outputs['frame_output']
         frame_target = targets['frames']
         
-        # Apply sigmoid to logits and convert to binary predictions (threshold at 0.5)
-        frame_pred = torch.sigmoid(frame_logits)
+        # Convert to binary predictions (threshold at 0.5)
         frame_pred_binary = (frame_pred > 0.5).float()
         
         # Calculate frame-wise metrics
@@ -500,12 +494,11 @@ class MusicTranscriptionLightning(pl.LightningModule):
         mel_spec = batch['x']['mel_spec']
         outputs = self(mel_spec)
         
-        # Apply sigmoid to convert logits to probabilities for inference
         return {
-            'onset_pred': torch.sigmoid(outputs['reg_onset_output']),
-            'offset_pred': torch.sigmoid(outputs['reg_offset_output']),
-            'frame_pred': torch.sigmoid(outputs['frame_output']),
-            'velocity_pred': torch.sigmoid(outputs['velocity_output'])
+            'onset_pred': outputs['reg_onset_output'],
+            'offset_pred': outputs['reg_offset_output'],
+            'frame_pred': outputs['frame_output'],
+            'velocity_pred': outputs['velocity_output']
         }
     
     @staticmethod
@@ -536,7 +529,7 @@ class MusicTranscriptionLightning(pl.LightningModule):
         project_name="bebop-solo-transcriber", 
         experiment_name="crnn_training",
         max_epochs=100,
-        precision=16,
+        precision=32,
         accumulate_grad_batches=4,
         patience=10
     ):
