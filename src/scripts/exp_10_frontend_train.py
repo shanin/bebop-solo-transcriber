@@ -69,8 +69,6 @@ def main(args):
         project_name="bebop-solo-transcriber",
         experiment_name=args.experiment_name,
         max_epochs=args.max_epochs,
-        precision=args.precision,
-        accumulate_grad_batches=args.accumulate_grad_batches,
         patience=args.patience
     )
 
@@ -109,10 +107,6 @@ if __name__ == "__main__":
     parser.add_argument("--learning_rate", type=float, default=1e-3, help="Learning rate")
     parser.add_argument("--patience", type=int, default=10, help="Early stopping patience")
     
-    # Memory optimization arguments
-    parser.add_argument("--precision", type=int, default=16, choices=[16, 32], help="Numerical precision")
-    parser.add_argument("--accumulate_grad_batches", type=int, default=4, help="Gradient accumulation steps")
-    
     # Loss weight arguments
     parser.add_argument("--onset_weight", type=float, default=1.0, help="Onset loss weight")
     parser.add_argument("--offset_weight", type=float, default=1.0, help="Offset loss weight")
@@ -123,7 +117,6 @@ if __name__ == "__main__":
     
     print(f"Starting experiment: {args.experiment_name}")
     print(f"Batch size: {args.batch_size}, Frames: {args.frames}")
-    print(f"Precision: {args.precision}, Gradient accumulation: {args.accumulate_grad_batches}")
     print(f"Loss weights - Onset: {args.onset_weight}, Offset: {args.offset_weight}, Frame: {args.frame_weight}, Velocity: {args.velocity_weight}")
     
     main(args)
