@@ -47,6 +47,11 @@ if __name__ == '__main__':
                                 fourier[idx, 2*j] = np.sin(2 * np.pi * phase * (j + 1))
                                 fourier[idx, 2*j+1] = np.cos(2 * np.pi * phase * (j + 1))
                 
+                # Convert 1D arrays to 2D for concatenation
+                bar_index = np.array(bar_index).reshape(-1, 1)
+                beat_index = np.array(beat_index).reshape(-1, 1)
+                frame_phase = np.array(frame_phase).reshape(-1, 1)
+                
                 posenc = np.concatenate([bar_index, beat_index, frame_phase, fourier], axis=-1)
                 np.save(os.path.join(args.output_dir, f'FS{participant}_{song:02d}.posenc.npy'), posenc)
 
