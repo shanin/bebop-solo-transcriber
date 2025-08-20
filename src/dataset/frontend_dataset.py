@@ -60,7 +60,8 @@ class FrontendTrackDataset(Dataset):
             'mel_spec': x,
             'onset': y['onset'],
             'offset': y['offset'],
-            'frames': y['frames']
+            'frames': y['frames'],
+            'id': self.files_x[idx].split('.')[0]
         }
 
 class FilosaxFrontendTrackDataset(FrontendTrackDataset):
