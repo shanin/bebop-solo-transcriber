@@ -91,8 +91,14 @@ class FrontendSegmentDataset(Dataset):
         self.use_cache = use_cache
         for track_idx, track in enumerate(self.dataset):
             num_frames = track['mel_spec'].shape[0]
+            # Include all full segments
             for i in range(0, num_frames - self.num_consecutive_frames + 1, self.num_consecutive_frames):
                 self.index.append((track_idx, i))
+            # Include tail segment if there's a remainder
+            remainder = num_frames % self.num_consecutive_frames
+            if remainder > 0:
+                tail_start = num_frames - remainder
+                self.index.append((track_idx, tail_start))
             if self.use_cache:
                 self.cache[track_idx] = track
     
@@ -107,14 +113,48 @@ class FrontendSegmentDataset(Dataset):
             track = self.cache[track_idx]
         else:
             track = self.dataset[track_idx]
+        
+        # Extract the segment (may be shorter than num_consecutive_frames for tail segments)
+        mel_spec = track['mel_spec'][frame_idx:frame_idx + self.num_consecutive_frames]
+        onset = track['onset'][frame_idx:frame_idx + self.num_consecutive_frames]
+        offset = track['offset'][frame_idx:frame_idx + self.num_consecutive_frames]
+        frames = track['frames'][frame_idx:frame_idx + self.num_consecutive_frames]
+        
+        # Check if padding is needed (for tail segments)
+        actual_length = mel_spec.shape[0]
+        if actual_length < self.num_consecutive_frames:
+            pad_length = self.num_consecutive_frames - actual_length
+            
+            # Pad mel_spec with -100
+            mel_spec_shape = list(mel_spec.shape)
+            mel_spec_shape[0] = pad_length
+            mel_spec_pad = np.full(mel_spec_shape, -100.0, dtype=mel_spec.dtype)
+            mel_spec = np.concatenate([mel_spec, mel_spec_pad], axis=0)
+            
+            # Pad onset, offset, frames with 0
+            onset_shape = list(onset.shape)
+            onset_shape[0] = pad_length
+            onset_pad = np.zeros(onset_shape, dtype=onset.dtype)
+            onset = np.concatenate([onset, onset_pad], axis=0)
+            
+            offset_shape = list(offset.shape)
+            offset_shape[0] = pad_length
+            offset_pad = np.zeros(offset_shape, dtype=offset.dtype)
+            offset = np.concatenate([offset, offset_pad], axis=0)
+            
+            frames_shape = list(frames.shape)
+            frames_shape[0] = pad_length
+            frames_pad = np.zeros(frames_shape, dtype=frames.dtype)
+            frames = np.concatenate([frames, frames_pad], axis=0)
+        
         segment = {
             'x': {
-                'mel_spec': track['mel_spec'][frame_idx:frame_idx + self.num_consecutive_frames],
+                'mel_spec': mel_spec,
             },
             'y': {
-                'onset': track['onset'][frame_idx:frame_idx + self.num_consecutive_frames],
-                'offset': track['offset'][frame_idx:frame_idx + self.num_consecutive_frames],
-                'frames': track['frames'][frame_idx:frame_idx + self.num_consecutive_frames],
+                'onset': onset,
+                'offset': offset,
+                'frames': frames,
             },
         }
         return segment
