@@ -29,7 +29,7 @@ def prepare_annotations(row):
         'flags': [row['flag1'], row['flag2'], row['flag3'], row['flag4']],
     }
 
-def combine_filosax(labeled_scores, crnn_folder, posenc_folder, output_folder):
+def compile_filosax(labeled_scores, output_folder):
     for participant in range(1, 6):
         for song in range(1, 49):
             print(f'Processing {participant} {song}...')
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--labeled_scores', type=str, default='../stages/1_processed_scores/labeled_scores.json')
-    parser.add_argument('--output_folder', type=str, default='../stages/1c_combined_data')
+    parser.add_argument('--output_folder', type=str, default='../stages/1d_compiled_bars')
     args = parser.parse_args()
 
     print('Loading labeled scores...')
@@ -83,4 +83,4 @@ if __name__ == '__main__':
         labeled_scores = pd.DataFrame(json.load(f))
     labeled_scores = labeled_scores.replace({None: np.nan})
 
-    combine_filosax(labeled_scores, args.crnn_folder, args.posenc_folder, args.output_folder)
+    compile_filosax(labeled_scores, args.output_folder)
