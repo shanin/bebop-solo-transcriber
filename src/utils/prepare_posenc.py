@@ -6,13 +6,17 @@ import os
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input_file', type=str)
+    parser.add_argument('--labeled_scores', type=str)
     parser.add_argument('--input_dir', type=str)
     parser.add_argument('--output_dir', type=str)
     parser.add_argument('--dataset', type=str, default='filosax')
     args = parser.parse_args()
 
-    scores = pickle.load(open(args.input_file, 'rb'))
+    print('Loading labeled scores...')
+    with open(args.labeled_scores, 'r') as f:
+        labeled_scores = pd.DataFrame(json.load(f))
+    scores = labeled_scores.replace({None: np.nan})
+
     if args.dataset == 'filosax':
         for participant in range(1, 6):
             for song in range(1, 49):
@@ -26,21 +30,15 @@ if __name__ == '__main__':
                 fourier = np.zeros((len(features), 12))
 
                 for i, bar in local_scores.iterrows():
-                    bar_start = bar.syncpoint
-                    if i == len(scores) - 1:
-                        bar_end = bar_start + 4 * delta
-                    else:
-                        next_bar = scores.iloc[i+1]
-                        bar_end = next_bar.syncpoint
-                    delta = (bar_end - bar_start) / 4
-                    beats = [bar_start, bar_start + delta, bar_start + 2 * delta, bar_start + 3 * delta, bar_end]
-                    mask = (frame_centers > beats[0]) & (frame_centers < beats[-1])
+                    beats = bar['beats']
+                    mask = (frame_centers >= beats[0]) & (frame_centers < beats[-1])
                     for idx in np.where(mask)[0]:
                         bar_index[idx] = bar.bar_num
                     for i in range(4):
                         mask = (frame_centers > beats[i]) & (frame_centers < beats[i+1])
                         for idx in np.where(mask)[0]:
                             beat_index[idx] = i
+                            delta = (beats[i+1] - beats[i])
                             phase = (frame_centers[idx] - beats[i]) / delta
                             frame_phase[idx] = phase
                             for j in range(6):
