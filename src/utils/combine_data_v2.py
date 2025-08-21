@@ -141,4 +141,4 @@ if __name__ == '__main__':
         labeled_scores = pd.DataFrame(json.load(f))
     labeled_scores = labeled_scores.replace({None: np.nan})
 
-    combine_filosax(labeled_scores, args.pesto_folder, args.flux_folder, args.output_folder)
+    combine_filosax(labeled_scores, args.crnn_folder, args.posenc_folder, args.output_folder)
