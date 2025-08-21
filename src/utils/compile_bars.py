@@ -57,12 +57,14 @@ def compile_filosax(labeled_scores, output_folder):
             score_annotations_tensor = torch.tensor(song_score_annotations)
             rhythm_signature_tensor = torch.tensor(song_rhythm_signature)
             data_flags_tensor = torch.tensor(song_data_flags)
+            bar_nums_tensor = torch.tensor(song_bar_nums)
 
             # Save tensors in a dictionary
             torch_data = {
                 'tokens': score_annotations_tensor,
                 'rhythm_signatures': rhythm_signature_tensor,
-                'flags': data_flags_tensor
+                'flags': data_flags_tensor,
+                'bar_nums': bar_nums_tensor
             }
 
             torch_data['rhythm_tokens'] = torch.stack([torch.tensor([generate_rhythm_token(x) for x in bar]) for bar in song_raw_rhythm_signature])
