@@ -14,3 +14,16 @@ def int_to_rhythm_str(integer: int) -> str:
         str_end = ''.join([substitution[digit] for digit in digits[::-1]])
         result = result[:-len(str_end)] + str_end
     return result
+
+def signature_to_mask(signature: str):
+    mask = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    for i in range(len(signature)):
+        if signature[i] == 'o':
+            mask[i] = 0
+        elif signature[i] == 't':
+            mask[i] = 1
+        elif signature[i] == 'r':
+            mask[i] = 2
+        elif signature[i] == 'x':
+            mask[i] = 3
+    return mask
