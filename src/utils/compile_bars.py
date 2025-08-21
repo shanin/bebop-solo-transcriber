@@ -27,6 +27,7 @@ def prepare_annotations(row):
         'raw_rhythm_signature': [row['rhythm_signature'][x] for x in range(4)],
         'rhythm_tokens': [generate_rhythm_token(row['rhythm_signature'][x]) for x in range(4)],
         'flags': [row['flag1'], row['flag2'], row['flag3'], row['flag4']],
+        'bar_num': row['bar_num'],
     }
 
 def compile_filosax(labeled_scores, output_folder):
@@ -42,6 +43,7 @@ def compile_filosax(labeled_scores, output_folder):
             song_rhythm_signature = []
             song_data_flags = []
             song_raw_rhythm_signature = []
+            song_bar_nums = []
             for _, row in metadata.iterrows():
                 if row['double_time'] is False:
                     bar_annotation = prepare_annotations(row)
@@ -49,6 +51,7 @@ def compile_filosax(labeled_scores, output_folder):
                     song_rhythm_signature.append(bar_annotation['rhythm_signature'])
                     song_data_flags.append(bar_annotation['flags'])
                     song_raw_rhythm_signature.append(bar_annotation['raw_rhythm_signature'])
+                    song_bar_nums.append(bar_annotation['bar_num'])
 
             # Convert lists to tensors
             score_annotations_tensor = torch.tensor(song_score_annotations)
