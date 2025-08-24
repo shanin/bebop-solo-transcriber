@@ -85,3 +85,159 @@ class FilosaxBackendDataset(BackendTrackDataset):
                     [f'FS{i}_48.{self.source}.pt' for i in range(1, 6)]
         self.val_files = [f'FS{i}_45.{self.source}.pt' for i in range(1, 6)]
         self.train_files = [f for f in self.all_files if f not in self.test_files and f not in self.val_files and f.endswith(f'.{self.source}.pt')]
+
+class BackendSegmentDataset(Dataset):
+    def __init__(self, dataset, num_consecutive_bars: int = 8, random_transposition: bool = False, use_cache: bool = True, pitch_shift: bool = False, disable_rhythm_classifier = False):
+        """
+        Args:
+            dataset: BackendTrackDataset object
+            num_consecutive_bars: int (default 8)
+            random_transposition: bool
+            use_cache: bool
+            pitch_shift: bool - if True, the pitch of the segment is shifted by -1, 0 or 1 bin (1 semitone = 3 bins)
+        """
+        self.dataset = dataset
+        self.num_consecutive_bars = num_consecutive_bars
+        self.random_transposition = random_transposition
+        self.pitch_shift = pitch_shift
+        self.index = []
+        self.cache = {}
+        self.use_cache = use_cache
+        self.disable_rhythm_classifier = disable_rhythm_classifier
+        
+        # Build index of all possible segments
+        for track_idx, track in enumerate(self.dataset):
+            num_bars = track['tokens'].shape[0]
+            for i in range(0, num_bars - self.num_consecutive_bars + 1):
+                self.index.append((track_idx, i))
+            if self.use_cache:
+                self.cache[track_idx] = track
+    
+    def __len__(self):
+        return len(self.index)
+    
+    def create_bin_level_position_encoding(self, num_bars):
+        """
+        Create position encoding for bin-level data.
+        Each bar has 4 beats, each beat has 12 bins + 1 rhythm token.
+        Returns tensor of shape [num_bars, 52, 3] where last dim is [bar_idx, beat_idx, bin_idx]
+        """
+        position_encoding = []
+        bin_encoding = []
+        beat_encoding = []
+        for bar_idx in range(num_bars):
+            for beat_idx in range(4):
+                # 12 bins per beat
+                for bin_idx in range(12):
+                    bin_encoding.append([bar_idx, beat_idx, bin_idx])
+                # 1 rhythm token per beat (bin_idx = 12)
+                beat_encoding.append([bar_idx, beat_idx, 12])
+        return torch.tensor(bin_encoding, dtype=torch.long), torch.tensor(beat_encoding, dtype=torch.long)
+    
+    def adjust_frame_level_posenc(self, posenc_data, segment_start_bar):
+        """
+        Adjust position encoding to start from 0 for this segment.
+        
+        Args:
+            posenc_data: tensor of shape [total_frames, posenc_features] 
+            segment_start_bar: int, the starting bar index for this segment
+            
+        Returns:
+            Tuple of (concatenated_frames, adjusted_posenc)
+        """
+        # Adjust the absolute bar numbers in posenc to start from 0 for this segment
+        adjusted_posenc = posenc_data.clone()
+        if len(adjusted_posenc.shape) > 1 and adjusted_posenc.shape[1] > 0:
+            adjusted_posenc[:, 0] = adjusted_posenc[:, 0] - segment_start_bar
+        
+        return adjusted_posenc
+    
+    def __getitem__(self, idx):
+        track_idx, bar_idx = self.index[idx]
+        if self.use_cache:
+            if track_idx not in self.cache:
+                self.cache[track_idx] = self.dataset[track_idx]
+            track = self.cache[track_idx]
+        else:
+            track = self.dataset[track_idx]
+        
+        # Extract bin-level data (easy concatenation)
+        bin_level_data = {
+            'tokens': track['tokens'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
+            'rhythm_tokens': track['rhythm_tokens'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
+            'mask': track['mask'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
+            'inferred_time_feel': track['inferred_time_feel'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
+            'source_time_feel': track['source_time_feel'].clone(),
+            'rhythm_signatures': track['rhythm_signatures'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
+            'flags': track['flags'][bar_idx:bar_idx + self.num_consecutive_bars].clone(),
+        }
+        
+        # Create bin-level position encoding
+        bin_position_encoding, beat_position_encoding = self.create_bin_level_position_encoding(self.num_consecutive_bars)
+        
+        # Extract and process frame-level data
+        # Find the frame indices corresponding to the selected bars
+        # posenc contains [bar_idx, beat_idx, ...] in first two columns
+        posenc_full = track['posenc']
+        bar_mask = (posenc_full[:, 0] >= bar_idx) & (posenc_full[:, 0] < bar_idx + self.num_consecutive_bars)
+        
+        frame_indices = torch.where(bar_mask)[0]
+        if len(frame_indices) > 0:
+            start_frame = frame_indices[0].item()
+            end_frame = frame_indices[-1].item() + 1
+            
+            segment_onsets = track['onsets'][start_frame:end_frame]
+            segment_offsets = track['offsets'][start_frame:end_frame]
+            segment_frames = track['frames'][start_frame:end_frame]
+            segment_posenc = track['posenc'][start_frame:end_frame]
+            
+            # Adjust position encoding for this segment
+            adjusted_posenc = self.adjust_frame_level_posenc(segment_posenc, bar_idx)
+
+        else:
+            # Handle empty case
+            segment_onsets = torch.empty(0, track['onsets'].shape[1] if len(track['onsets'].shape) > 1 else 0)
+            segment_offsets = torch.empty(0, track['offsets'].shape[1] if len(track['offsets'].shape) > 1 else 0) 
+            segment_frames = torch.empty(0, track['frames'].shape[1] if len(track['frames'].shape) > 1 else 0)
+            adjusted_posenc = torch.empty(0, track['posenc'].shape[1] if len(track['posenc'].shape) > 1 else 0)
+        
+        frame_level_data = {
+            'onsets': segment_onsets,
+            'offsets': segment_offsets,
+            'frames': segment_frames,
+            'posenc': adjusted_posenc,
+        }
+        
+        segment = {
+            'bin_level': bin_level_data,
+            'frame_level': frame_level_data,
+            'bin_position_encoding': bin_position_encoding,
+            'beat_position_encoding': beat_position_encoding,
+            'meta': {
+                'disable_rhythm_classifier': self.disable_rhythm_classifier,
+                'track_idx': track_idx,
+                'bar_idx': bar_idx,
+            }
+        }
+        
+        # Apply transformations if needed - not implemented yet
+        #if self.random_transposition:
+        #    segment = self.transposition(segment)
+        #if self.pitch_shift:
+        #    segment = self.apply_pitch_shift(segment)
+            
+        return segment
+    
+    def transposition(self, segment):
+        # Apply transposition to bin-level data
+        if hasattr(self.dataset, 'instrument') and self.dataset.instrument == 'tenor':
+            # Apply random transposition logic here if needed
+            pass
+        return segment
+    
+    def apply_pitch_shift(self, segment):
+        # Apply pitch shift to frame-level data if needed
+        if self.pitch_shift:
+            # Apply pitch shifting logic here if needed
+            pass
+        return segment
