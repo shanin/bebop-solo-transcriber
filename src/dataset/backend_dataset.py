@@ -241,3 +241,103 @@ class BackendSegmentDataset(Dataset):
             # Apply pitch shifting logic here if needed
             pass
         return segment
+
+
+def backend_segment_collate_fn(batch):
+    """
+    Collate function for BackendSegmentDataset.
+    
+    Handles variable-length frame-level data by padding and creating masks.
+    Bin-level data has consistent dimensions so can be stacked directly.
+    
+    Args:
+        batch: List of segment dictionaries from BackendSegmentDataset
+        
+    Returns:
+        Dictionary with batched data and masks for frame-level sequences
+    """
+    batch_size = len(batch)
+    
+    # Handle bin-level data (consistent dimensions) - just stack
+    bin_level_keys = ['tokens', 'rhythm_tokens', 'mask', 'inferred_time_feel', 
+                      'rhythm_signatures', 'flags']
+    
+    batched_bin_level = {}
+    for key in bin_level_keys:
+        if key in batch[0]['bin_level']:
+            batched_bin_level[key] = torch.stack([item['bin_level'][key] for item in batch])
+    
+    # Handle source_time_feel separately (single value per track, not per segment)
+    if 'source_time_feel' in batch[0]['bin_level']:
+        batched_bin_level['source_time_feel'] = torch.stack([item['bin_level']['source_time_feel'] for item in batch])
+    
+    # Handle bin position encoding (consistent dimensions)
+    bin_position_encoding = torch.stack([item['bin_position_encoding'] for item in batch])
+    beat_position_encoding = torch.stack([item['beat_position_encoding'] for item in batch])
+    
+    # Handle frame-level data (variable dimensions) - need padding and masking
+    frame_level_keys = ['onsets', 'offsets', 'frames', 'posenc']
+    
+    # Find maximum sequence length across the batch for each frame-level key
+    max_lengths = {}
+    for key in frame_level_keys:
+        if key in batch[0]['frame_level']:
+            max_lengths[key] = max(item['frame_level'][key].shape[0] for item in batch)
+    
+    batched_frame_level = {}
+    frame_masks = {}
+    
+    for key in frame_level_keys:
+        if key in batch[0]['frame_level']:
+            max_len = max_lengths[key]
+            if max_len == 0:
+                # Handle empty case
+                sample_shape = batch[0]['frame_level'][key].shape
+                batched_frame_level[key] = torch.zeros(batch_size, 0, *sample_shape[1:])
+                frame_masks[key] = torch.zeros(batch_size, 0, dtype=torch.bool)
+                continue
+                
+            # Get feature dimensions from first non-empty sample
+            feature_dims = None
+            for item in batch:
+                if item['frame_level'][key].shape[0] > 0:
+                    feature_dims = item['frame_level'][key].shape[1:]
+                    break
+            
+            if feature_dims is None:
+                # All samples are empty
+                batched_frame_level[key] = torch.zeros(batch_size, 0)
+                frame_masks[key] = torch.zeros(batch_size, 0, dtype=torch.bool)
+                continue
+            
+            # Create padded tensor
+            padded_shape = (batch_size, max_len, *feature_dims)
+            padded_tensor = torch.zeros(padded_shape, dtype=batch[0]['frame_level'][key].dtype)
+            mask = torch.zeros(batch_size, max_len, dtype=torch.bool)
+            
+            # Fill in the data and create masks
+            for i, item in enumerate(batch):
+                seq_len = item['frame_level'][key].shape[0]
+                if seq_len > 0:
+                    padded_tensor[i, :seq_len] = item['frame_level'][key]
+                    mask[i, :seq_len] = True
+            
+            batched_frame_level[key] = padded_tensor
+            frame_masks[key] = mask
+    
+    # Handle metadata
+    meta_data = {
+        'disable_rhythm_classifier': [item['meta']['disable_rhythm_classifier'] for item in batch],
+        'track_idx': torch.tensor([item['meta']['track_idx'] for item in batch]),
+        'bar_idx': torch.tensor([item['meta']['bar_idx'] for item in batch]),
+    }
+    
+    return {
+        'bin_level': batched_bin_level,
+        'frame_level': batched_frame_level,
+        'frame_masks': frame_masks,
+        'bin_position_encoding': bin_position_encoding,
+        'meta': meta_data,
+        'batch_size': batch_size,
+    }
+
