@@ -118,20 +118,33 @@ class BackendSegmentDataset(Dataset):
     
     def create_bin_level_position_encoding(self, num_bars):
         """
-        Create position encoding for bin-level data.
+        Create position encoding for bin-level and beat-level data.
         Each bar has 4 beats, each beat has 12 bins + 1 rhythm token.
-        Returns tensor of shape [num_bars, 52, 3] where last dim is [bar_idx, beat_idx, bin_idx]
+        
+        Returns:
+            bin_encoding: tensor of shape [num_bars, 52, 3] where last dim is [bar_idx, beat_idx, bin_idx]
+            beat_encoding: tensor of shape [num_bars, 4, 3] where last dim is [bar_idx, beat_idx, 0]
         """
-        position_encoding = []
         bin_encoding = []
         beat_encoding = []
+        
         for bar_idx in range(num_bars):
+            bar_bin_encoding = []
+            bar_beat_encoding = []
+            
             for beat_idx in range(4):
                 # 12 bins per beat
                 for bin_idx in range(12):
-                    bin_encoding.append([bar_idx, beat_idx, bin_idx])
+                    bar_bin_encoding.append([bar_idx, beat_idx, bin_idx])
                 # 1 rhythm token per beat (bin_idx = 12)
-                beat_encoding.append([bar_idx, beat_idx, 12])
+                bar_bin_encoding.append([bar_idx, beat_idx, 12])
+                
+                # Beat-level encoding (one per beat)
+                bar_beat_encoding.append([bar_idx, beat_idx, 0])
+            
+            bin_encoding.append(bar_bin_encoding)
+            beat_encoding.append(bar_beat_encoding)
+        
         return torch.tensor(bin_encoding, dtype=torch.long), torch.tensor(beat_encoding, dtype=torch.long)
     
     def adjust_frame_level_posenc(self, posenc_data, segment_start_bar):
@@ -278,23 +291,23 @@ def backend_segment_collate_fn(batch):
     # Handle frame-level data (variable dimensions) - need padding and masking
     frame_level_keys = ['onsets', 'offsets', 'frames', 'posenc']
     
-    # Find maximum sequence length across the batch for each frame-level key
-    max_lengths = {}
-    for key in frame_level_keys:
-        if key in batch[0]['frame_level']:
-            max_lengths[key] = max(item['frame_level'][key].shape[0] for item in batch)
+    # Find maximum sequence length across the batch (should be same for all frame-level keys)
+    max_frame_len = 0
+    for item in batch:
+        if frame_level_keys[0] in item['frame_level']:
+            max_frame_len = max(max_frame_len, item['frame_level'][frame_level_keys[0]].shape[0])
     
     batched_frame_level = {}
-    frame_masks = {}
+    
+    # Create single mask for all frame-level data (they share the same temporal dimension)
+    frame_mask = torch.zeros(batch_size, max_frame_len, dtype=torch.bool)
     
     for key in frame_level_keys:
         if key in batch[0]['frame_level']:
-            max_len = max_lengths[key]
-            if max_len == 0:
+            if max_frame_len == 0:
                 # Handle empty case
                 sample_shape = batch[0]['frame_level'][key].shape
                 batched_frame_level[key] = torch.zeros(batch_size, 0, *sample_shape[1:])
-                frame_masks[key] = torch.zeros(batch_size, 0, dtype=torch.bool)
                 continue
                 
             # Get feature dimensions from first non-empty sample
@@ -307,23 +320,22 @@ def backend_segment_collate_fn(batch):
             if feature_dims is None:
                 # All samples are empty
                 batched_frame_level[key] = torch.zeros(batch_size, 0)
-                frame_masks[key] = torch.zeros(batch_size, 0, dtype=torch.bool)
                 continue
             
             # Create padded tensor
-            padded_shape = (batch_size, max_len, *feature_dims)
+            padded_shape = (batch_size, max_frame_len, *feature_dims)
             padded_tensor = torch.zeros(padded_shape, dtype=batch[0]['frame_level'][key].dtype)
-            mask = torch.zeros(batch_size, max_len, dtype=torch.bool)
             
-            # Fill in the data and create masks
+            # Fill in the data and create mask (only once, for the first key)
             for i, item in enumerate(batch):
                 seq_len = item['frame_level'][key].shape[0]
                 if seq_len > 0:
                     padded_tensor[i, :seq_len] = item['frame_level'][key]
-                    mask[i, :seq_len] = True
+                    # Only set mask once (on first key iteration)
+                    if key == frame_level_keys[0]:
+                        frame_mask[i, :seq_len] = True
             
             batched_frame_level[key] = padded_tensor
-            frame_masks[key] = mask
     
     # Handle metadata
     meta_data = {
@@ -335,8 +347,9 @@ def backend_segment_collate_fn(batch):
     return {
         'bin_level': batched_bin_level,
         'frame_level': batched_frame_level,
-        'frame_masks': frame_masks,
+        'frame_mask': frame_mask,  # Single mask for all frame-level data
         'bin_position_encoding': bin_position_encoding,
+        'beat_position_encoding': beat_position_encoding,
         'meta': meta_data,
         'batch_size': batch_size,
     }
