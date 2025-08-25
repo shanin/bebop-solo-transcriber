@@ -119,10 +119,11 @@ class BackendSegmentDataset(Dataset):
     def create_bin_level_position_encoding(self, num_bars):
         """
         Create position encoding for bin-level and beat-level data.
-        Each bar has 4 beats, each beat has 12 bins + 1 rhythm token.
+        Bin latents: 12 per beat x 4 beats = 48 total
+        Beat/Rhythm latents: 1 per beat x 4 beats = 4 total (separate from bins)
         
         Returns:
-            bin_encoding: tensor of shape [num_bars, 52, 3] where last dim is [bar_idx, beat_idx, bin_idx]
+            bin_encoding: tensor of shape [num_bars, 48, 3] where last dim is [bar_idx, beat_idx, bin_idx]
             beat_encoding: tensor of shape [num_bars, 4, 3] where last dim is [bar_idx, beat_idx, 0]
         """
         bin_encoding = []
@@ -133,14 +134,12 @@ class BackendSegmentDataset(Dataset):
             bar_beat_encoding = []
             
             for beat_idx in range(4):
-                # 12 bins per beat
+                # 12 bins per beat (bin_idx 0-11)
                 for bin_idx in range(12):
                     bar_bin_encoding.append([bar_idx, beat_idx, bin_idx])
-                # 1 rhythm token per beat (bin_idx = 12)
-                bar_bin_encoding.append([bar_idx, beat_idx, 12])
                 
-                # Beat-level encoding (one per beat)
-                bar_beat_encoding.append([bar_idx, beat_idx, 0])
+                # Beat-level encoding (one per beat, separate from bins)
+                bar_beat_encoding.append([bar_idx, beat_idx, 12])
             
             bin_encoding.append(bar_bin_encoding)
             beat_encoding.append(bar_beat_encoding)
