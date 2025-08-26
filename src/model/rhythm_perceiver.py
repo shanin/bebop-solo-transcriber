@@ -12,7 +12,7 @@ from src.tokenizer.rhythm_tokens import RHYTHM_TOKENS
 INV_RHYTHM_TOKENS = {v['id']: k for k, v in RHYTHM_TOKENS.items()}
 
 class PositionEmbedding(nn.Module):
-    def __init__(self, embedding_dim: int = 128, fourier_dim: int = 12):
+    def __init__(self, embedding_dim: int = 128, fourier_dim: int = 13):
         """
         Args:
             embedding_dim: Dimension of the output embeddings
@@ -157,7 +157,7 @@ class CRNNFeatureEncoder(nn.Module):
     def __init__(self, 
                  frame_feature_dim: int = 88,  # CRNN output features (onsets, offsets, frames)
                  embedding_dim: int = 128,
-                 fourier_dim: int = 12):
+                 fourier_dim: int = 13):
         """
         Feature encoder for CRNN frontend output.
         
