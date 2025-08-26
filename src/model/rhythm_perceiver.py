@@ -602,7 +602,7 @@ class TranscriptionMetrics:
         return pitch_matches.mean()
         
     
-class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
+class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
     def __init__(self,
                  embedding_dim: int = 128,
                  num_heads: int = 8,
