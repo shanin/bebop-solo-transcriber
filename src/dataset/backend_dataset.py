@@ -56,19 +56,19 @@ class BackendTrackDataset(Dataset):
         data = self.perform_hard_transposition(data)
 
         onsets_file_path = os.path.join(self.crnn_dir, self.files[idx].replace(f'.{self.source}.pt', '.onsets.npy'))
-        onsets_data = torch.from_numpy(np.load(onsets_file_path))
+        onsets_data = torch.from_numpy(np.load(onsets_file_path)).float()
         data['onsets'] = onsets_data
 
         offsets_file_path = os.path.join(self.crnn_dir, self.files[idx].replace(f'.{self.source}.pt', '.offsets.npy'))
-        offsets_data = torch.from_numpy(np.load(offsets_file_path))
+        offsets_data = torch.from_numpy(np.load(offsets_file_path)).float()
         data['offsets'] = offsets_data
 
         frames_file_path = os.path.join(self.crnn_dir, self.files[idx].replace(f'.{self.source}.pt', '.frames.npy'))
-        frames_data = torch.from_numpy(np.load(frames_file_path))
+        frames_data = torch.from_numpy(np.load(frames_file_path)).float()
         data['frames'] = frames_data
 
         posenc_file_path = os.path.join(self.posenc_dir, self.files[idx].replace(f'.{self.source}.pt', '.posenc.npy'))
-        posenc_data = torch.from_numpy(np.load(posenc_file_path))
+        posenc_data = torch.from_numpy(np.load(posenc_file_path)).float()
         data['posenc'] = posenc_data
 
         return data
