@@ -280,7 +280,7 @@ class CRNNFeatureEncoder(nn.Module):
         return bin_attended, rhythm_attended
 
     
-class RhythmAwareTransformerEncoder(nn.Module):
+class RhythmPerceiver(nn.Module):
     def __init__(self, 
                  embedding_dim: int = 128,
                  num_heads: int = 8,
@@ -603,7 +603,7 @@ class RhythmScaffoldLightningModule(pl.LightningModule, TranscriptionMetrics):
         self.save_hyperparameters()
         
         # Create model
-        self.model = RhythmAwareTransformerEncoder(
+        self.model = RhythmPerceiver(
             embedding_dim=embedding_dim,
             num_heads=num_heads,
             num_layers=num_layers,
