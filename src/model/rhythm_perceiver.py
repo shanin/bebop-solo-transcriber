@@ -56,15 +56,36 @@ class PositionEmbedding(nn.Module):
         rhythm_bar_indices = beat_position_encoding[:, :, :, 0]  # [batch, bars, 4]
         rhythm_beat_indices = beat_position_encoding[:, :, :, 1]  # [batch, bars, 4]
         
+        # Convert to long and add debug assertions for latent position encoding
+        bin_bar_indices_long = bin_bar_indices.long()
+        bin_beat_indices_long = bin_beat_indices.long()
+        bin_subdivision_indices_long = bin_subdivision_indices.long()
+        rhythm_bar_indices_long = rhythm_bar_indices.long()
+        rhythm_beat_indices_long = rhythm_beat_indices.long()
+        
+        # Debug assertions for bin latent indices
+        assert bin_bar_indices_long.min() >= 0, f"bin_bar_indices contains negative values: min={bin_bar_indices_long.min()}"
+        assert bin_bar_indices_long.max() < 32, f"bin_bar_indices contains values >= 32: max={bin_bar_indices_long.max()}"
+        assert bin_beat_indices_long.min() >= 0, f"bin_beat_indices contains negative values: min={bin_beat_indices_long.min()}"
+        assert bin_beat_indices_long.max() < 4, f"bin_beat_indices contains values >= 4: max={bin_beat_indices_long.max()}"
+        assert bin_subdivision_indices_long.min() >= 0, f"bin_subdivision_indices contains negative values: min={bin_subdivision_indices_long.min()}"
+        assert bin_subdivision_indices_long.max() < 13, f"bin_subdivision_indices contains values >= 13: max={bin_subdivision_indices_long.max()}"
+        
+        # Debug assertions for rhythm latent indices  
+        assert rhythm_bar_indices_long.min() >= 0, f"rhythm_bar_indices contains negative values: min={rhythm_bar_indices_long.min()}"
+        assert rhythm_bar_indices_long.max() < 32, f"rhythm_bar_indices contains values >= 32: max={rhythm_bar_indices_long.max()}"
+        assert rhythm_beat_indices_long.min() >= 0, f"rhythm_beat_indices contains negative values: min={rhythm_beat_indices_long.min()}"
+        assert rhythm_beat_indices_long.max() < 4, f"rhythm_beat_indices contains values >= 4: max={rhythm_beat_indices_long.max()}"
+        
         # Get embeddings for bin latents
-        bin_bar_emb = self.bar_embedding(bin_bar_indices.long())
-        bin_beat_emb = self.beat_embedding(bin_beat_indices.long())
-        bin_subdivision_emb = self.subdivision_embedding(bin_subdivision_indices.long())
+        bin_bar_emb = self.bar_embedding(bin_bar_indices_long)
+        bin_beat_emb = self.beat_embedding(bin_beat_indices_long)
+        bin_subdivision_emb = self.subdivision_embedding(bin_subdivision_indices_long)
         bin_position_emb = bin_bar_emb + bin_beat_emb + bin_subdivision_emb
         
         # Get embeddings for rhythm latents
-        rhythm_bar_emb = self.bar_embedding(rhythm_bar_indices.long())
-        rhythm_beat_emb = self.beat_embedding(rhythm_beat_indices.long())
+        rhythm_bar_emb = self.bar_embedding(rhythm_bar_indices_long)
+        rhythm_beat_emb = self.beat_embedding(rhythm_beat_indices_long)
         rhythm_subdivision_emb = self.subdivision_embedding(torch.full_like(rhythm_beat_indices, 12).long())  # Use 12 for rhythm token
         rhythm_position_emb = rhythm_bar_emb + rhythm_beat_emb + rhythm_subdivision_emb
         
@@ -87,6 +108,13 @@ class PositionEmbedding(nn.Module):
         bar_indices = frame_posenc[:, :, 0].long()  # [batch, frames]
         beat_indices = frame_posenc[:, :, 1].long()  # [batch, frames]
         fourier_features = frame_posenc[:, :, 2:]  # [batch, frames, fourier_dim]
+        
+        # Debug assertions for position encoding data
+        assert frame_posenc.dtype == torch.float32, f"frame_posenc has wrong dtype: {frame_posenc.dtype}, expected float32"
+        assert bar_indices.min() >= 0, f"bar_indices contains negative values: min={bar_indices.min()}"
+        assert bar_indices.max() < 32, f"bar_indices contains values >= 32: max={bar_indices.max()}"
+        assert beat_indices.min() >= 0, f"beat_indices contains negative values: min={beat_indices.min()}"
+        assert beat_indices.max() < 4, f"beat_indices contains values >= 4: max={beat_indices.max()}"
         
         # Get embeddings
         bar_emb = self.bar_embedding(bar_indices)  # [batch, frames, embedding_dim]
