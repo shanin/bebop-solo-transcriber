@@ -79,27 +79,40 @@ class FilosaxFrontendTrackDataset(FrontendTrackDataset):
 
 
 class FrontendSegmentDataset(Dataset):
-    def __init__(self, dataset, num_consecutive_frames: int, use_cache: bool = True):
+    def __init__(self, dataset, num_consecutive_frames: int, overlap_frames: int = 50, use_cache: bool = True):
         """
         Args:
             dataset: FrontendTrackDataset object
+            num_consecutive_frames: int, length of each segment
+            overlap_frames: int, overlap between consecutive segments (default: 50)
             use_cache: bool
         """
         self.dataset = dataset
         self.num_consecutive_frames = num_consecutive_frames
+        self.overlap_frames = overlap_frames
         self.index = []
         self.cache = {}
         self.use_cache = use_cache
         for track_idx, track in enumerate(self.dataset):
             num_frames = track['mel_spec'].shape[0]
-            # Include all full segments
-            for i in range(0, num_frames - self.num_consecutive_frames + 1, self.num_consecutive_frames):
+            
+            # Calculate step size for overlapping segments
+            step_size = self.num_consecutive_frames - self.overlap_frames
+            
+            # Start with padding: first segment starts at negative index
+            start_offset = -(self.overlap_frames // 2)
+            
+            # Include all full segments with overlap, starting from the padded position
+            for i in range(start_offset, num_frames - self.num_consecutive_frames + 1, step_size):
                 self.index.append((track_idx, i))
-            # Include tail segment if there's a remainder
-            remainder = num_frames % self.num_consecutive_frames
-            if remainder > 0:
-                tail_start = num_frames - remainder
-                self.index.append((track_idx, tail_start))
+            
+            # Include tail segment if the last segment doesn't cover the end
+            if len(self.index) == 0 or self.index[-1][1] + self.num_consecutive_frames < num_frames:
+                # Add a final segment that ends at num_frames
+                tail_start = max(start_offset, num_frames - self.num_consecutive_frames)
+                # Only add if it's not the same as the last segment
+                if len(self.index) == 0 or self.index[-1][1] != tail_start:
+                    self.index.append((track_idx, tail_start))
             if self.use_cache:
                 self.cache[track_idx] = track
     
@@ -115,13 +128,55 @@ class FrontendSegmentDataset(Dataset):
         else:
             track = self.dataset[track_idx]
         
-        # Extract the segment (may be shorter than num_consecutive_frames for tail segments)
-        mel_spec = track['mel_spec'][frame_idx:frame_idx + self.num_consecutive_frames]
-        onset = track['onset'][frame_idx:frame_idx + self.num_consecutive_frames]
-        offset = track['offset'][frame_idx:frame_idx + self.num_consecutive_frames]
-        frames = track['frames'][frame_idx:frame_idx + self.num_consecutive_frames]
+        # Handle negative frame_idx (padding at the beginning)
+        if frame_idx < 0:
+            # We need to pad at the beginning
+            pad_start = -frame_idx
+            actual_start = 0
+            actual_end = min(self.num_consecutive_frames - pad_start, track['mel_spec'].shape[0])
+        else:
+            pad_start = 0
+            actual_start = frame_idx
+            actual_end = frame_idx + self.num_consecutive_frames
         
-        # Check if padding is needed (for tail segments)
+        # Extract the actual data portion
+        if actual_end > actual_start:
+            mel_spec = track['mel_spec'][actual_start:actual_end]
+            onset = track['onset'][actual_start:actual_end]
+            offset = track['offset'][actual_start:actual_end]
+            frames = track['frames'][actual_start:actual_end]
+        else:
+            # Edge case: no actual data to extract
+            mel_spec = np.empty((0, track['mel_spec'].shape[1]), dtype=track['mel_spec'].dtype)
+            onset = np.empty((0, track['onset'].shape[1]), dtype=track['onset'].dtype)
+            offset = np.empty((0, track['offset'].shape[1]), dtype=track['offset'].dtype)
+            frames = np.empty((0, track['frames'].shape[1]), dtype=track['frames'].dtype)
+        
+        # Add padding at the beginning if needed
+        if pad_start > 0:
+            # Pad mel_spec with -100 at the beginning
+            mel_spec_pad_shape = list(mel_spec.shape)
+            mel_spec_pad_shape[0] = pad_start
+            mel_spec_pad = np.full(mel_spec_pad_shape, -100.0, dtype=mel_spec.dtype)
+            mel_spec = np.concatenate([mel_spec_pad, mel_spec], axis=0)
+            
+            # Pad onset, offset, frames with 0 at the beginning
+            onset_pad_shape = list(onset.shape)
+            onset_pad_shape[0] = pad_start
+            onset_pad = np.zeros(onset_pad_shape, dtype=onset.dtype)
+            onset = np.concatenate([onset_pad, onset], axis=0)
+            
+            offset_pad_shape = list(offset.shape)
+            offset_pad_shape[0] = pad_start
+            offset_pad = np.zeros(offset_pad_shape, dtype=offset.dtype)
+            offset = np.concatenate([offset_pad, offset], axis=0)
+            
+            frames_pad_shape = list(frames.shape)
+            frames_pad_shape[0] = pad_start
+            frames_pad = np.zeros(frames_pad_shape, dtype=frames.dtype)
+            frames = np.concatenate([frames_pad, frames], axis=0)
+        
+        # Check if padding is needed at the end (for tail segments)
         actual_length = mel_spec.shape[0]
         if actual_length < self.num_consecutive_frames:
             pad_length = self.num_consecutive_frames - actual_length
