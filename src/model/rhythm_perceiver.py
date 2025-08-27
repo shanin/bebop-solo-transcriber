@@ -742,9 +742,9 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         mask = bin_level['mask'].view(-1) # [batch*bars*bins]
         
         # Compute loss
-            loss_pitch = self._rhythm_instructed_loss(bin_logits, targets, mask) 
-            loss_rhythm = self.rhythm_criterion(rhythm_logits, rhythm_targets)
-            loss = loss_pitch + self.rhythm_loss_weight * loss_rhythm
+        loss_pitch = self._rhythm_instructed_loss(bin_logits, targets, mask) 
+        loss_rhythm = self.rhythm_criterion(rhythm_logits, rhythm_targets)
+        loss = loss_pitch + self.rhythm_loss_weight * loss_rhythm
                 
         # Log differently for train vs val to reduce noise
         if mode == 'train':
