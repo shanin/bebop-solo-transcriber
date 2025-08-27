@@ -107,7 +107,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     print(f"Starting experiment: {args.experiment_name}")
-    print(f"Batch size: {args.batch_size}, Frames: {args.frames}")
-    print(f"Loss weights - Onset: {args.onset_weight}, Offset: {args.offset_weight}, Frame: {args.frame_weight}, Velocity: {args.velocity_weight}")
+    print(f"Batch size: {args.batch_size}, Consecutive bars: {args.num_consecutive_bars}")
+    print(f"Model - Embedding dim: {args.embedding_dim}, Heads: {args.num_heads}, Layers: {args.num_layers}")
+    print(f"Learning rate: {args.learning_rate}, Rhythm loss weight: {args.rhythm_loss_weight}")
     
     main(args)
