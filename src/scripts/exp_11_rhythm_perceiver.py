@@ -44,7 +44,7 @@ def main(args):
         max_epochs=args.max_epochs,
         precision="32",
         check_val_every_n_epoch=1,
-        log_every_n_steps=50,
+        log_every_n_steps=100,
         enable_checkpointing=True,
         callbacks=[
             pl.callbacks.ModelCheckpoint(

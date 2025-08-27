@@ -746,9 +746,17 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         loss_rhythm = self.rhythm_criterion(rhythm_logits, rhythm_targets)
         loss = loss_pitch + self.rhythm_loss_weight * loss_rhythm
                 
-        self.log(f'{mode}_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log(f'{mode}_loss_pitch', loss_pitch, on_step=False, on_epoch=True, prog_bar=True)
-        self.log(f'{mode}_loss_rhythm', loss_rhythm, on_step=False, on_epoch=True, prog_bar=True)
+        # Log differently for train vs val to reduce noise
+        if mode == 'train':
+            # For training: only log per-epoch to reduce console noise
+            self.log(f'{mode}_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{mode}_loss_pitch', loss_pitch, on_step=False, on_epoch=True, prog_bar=False)
+            self.log(f'{mode}_loss_rhythm', loss_rhythm, on_step=False, on_epoch=True, prog_bar=False)
+        else:
+            # For validation: log both step and epoch
+            self.log(f'{mode}_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{mode}_loss_pitch', loss_pitch, on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{mode}_loss_rhythm', loss_rhythm, on_step=False, on_epoch=True, prog_bar=True)
 
         return loss
 
@@ -760,6 +768,7 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         return self.generic_step(batch, batch_idx, 'val')
     
     def test_step(self, batch: Dict[str, Dict[str, torch.Tensor]], batch_idx: int) -> torch.Tensor:
+        mode = 'test'
         # Extract data from new backend dataset structure
         bin_level = batch['bin_level']
         frame_level = batch['frame_level']
@@ -819,16 +828,16 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         true_rhythm_tokens = rhythm_targets.view(batch_size, num_bars, rhythm_seq_len)
         rhythm_accuracy_from_rhythm_predictions = (pred_rhythm_tokens == true_rhythm_tokens).float().mean()
 
-        self.log(f'{mode}_token_accuracy', token_accuracy, on_step=onstep, on_epoch=True, prog_bar=True)
-        self.log(f'{mode}_voiced_bin_accuracy', voiced_bin_accuracy, on_step=onstep, on_epoch=True, prog_bar=True)
-        #self.log(f'{mode}_rhythm_accuracy', rhythm_accuracy, on_step=onstep, on_epoch=True, prog_bar=True)
-        self.log(f'{mode}_pianoroll_accuracy', pianoroll_accuracy, on_step=onstep, on_epoch=True, prog_bar=True)
-        self.log(f'{mode}_rhythm_accuracy_new', rhythm_accuracy_from_rhythm_predictions, on_step=onstep, on_epoch=True, prog_bar=True)
-        self.log(f'{mode}_onset_precision', onset_precision, on_step=onstep, on_epoch=True, prog_bar=True)
-        self.log(f'{mode}_onset_recall', onset_recall, on_step=onstep, on_epoch=True, prog_bar=True)
-        self.log(f'{mode}_onset_f1', onset_f1, on_step=onstep, on_epoch=True, prog_bar=True)
-        self.log(f'{mode}_special_pitch_accuracy', special_pitch_accuracy, on_step=onstep, on_epoch=True, prog_bar=True)
-        
+        # Log test metrics - only show most important ones in progress bar
+        self.log(f'{mode}_token_accuracy', token_accuracy, on_step=False, on_epoch=True, prog_bar=True)
+        self.log(f'{mode}_voiced_bin_accuracy', voiced_bin_accuracy, on_step=False, on_epoch=True, prog_bar=False)
+        self.log(f'{mode}_pianoroll_accuracy', pianoroll_accuracy, on_step=False, on_epoch=True, prog_bar=True)
+        self.log(f'{mode}_rhythm_accuracy_new', rhythm_accuracy_from_rhythm_predictions, on_step=False, on_epoch=True, prog_bar=False)
+        self.log(f'{mode}_onset_precision', onset_precision, on_step=False, on_epoch=True, prog_bar=False)
+        self.log(f'{mode}_onset_recall', onset_recall, on_step=False, on_epoch=True, prog_bar=False)
+        self.log(f'{mode}_onset_f1', onset_f1, on_step=False, on_epoch=True, prog_bar=True)
+        self.log(f'{mode}_special_pitch_accuracy', special_pitch_accuracy, on_step=False, on_epoch=True, prog_bar=False)
+
         
     def configure_optimizers(self) -> torch.optim.Optimizer:
         optimizer = torch.optim.AdamW(
