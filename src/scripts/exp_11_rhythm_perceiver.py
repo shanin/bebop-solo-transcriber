@@ -46,21 +46,17 @@ def main(args):
         check_val_every_n_epoch=1,
         log_every_n_steps=50,
         enable_checkpointing=True,
-        checkpoint_monitor="val_loss",
-        checkpoint_mode="min",
-        checkpoint_save_top_k=3,
         callbacks=[
             pl.callbacks.ModelCheckpoint(
                 monitor="val_loss",
                 mode="min",
                 save_top_k=3,
                 save_last=True,
+                filename=f'{args.experiment_name}-{{epoch:02d}}-{{val_loss:.4f}}',
+                auto_insert_metric_name=False,
             )
         ],
-        logger=wandb.init(
-            project="solo-transcriber",
-            name=args.experiment_name,
-        )
+        logger=model.wandb_logger,
     )
 
     # Train the model
