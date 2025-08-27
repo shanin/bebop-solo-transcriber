@@ -34,7 +34,7 @@ def main(args):
         dropout=args.dropout,
         learning_rate=args.learning_rate,
         weight_decay=args.weight_decay,
-        project_name="bebop-solo-transcriber",
+        project_name="solo-transcriber",
         experiment_name=args.experiment_name,
         rhythm_loss_weight=args.rhythm_loss_weight,
     )
@@ -58,7 +58,7 @@ def main(args):
             )
         ],
         logger=wandb.init(
-            project="bebop-solo-transcriber",
+            project="solo-transcriber",
             name=args.experiment_name,
         )
     )
