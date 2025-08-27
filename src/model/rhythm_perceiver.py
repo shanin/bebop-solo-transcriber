@@ -704,7 +704,7 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         scaffolds = [self._build_scaffold(INV_RHYTHM_TOKENS[int(code)], bin_logits.device) for code in rhythm_predictions.view(-1)]
         scaffolds = torch.stack(scaffolds, dim=0).view(-1)
         indices = torch.where(scaffolds == 0) # 0 is the masked pitch token
-        bin_predictions = torch.argmax(bin_logits, dim=-1) + 1
+        bin_predictions = torch.argmax(bin_logits, dim=-1)
         final = scaffolds.clone()
         final[indices] = bin_predictions[indices]
         return final
