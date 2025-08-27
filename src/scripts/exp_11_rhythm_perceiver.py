@@ -60,8 +60,8 @@ def main(args):
     )
 
     # Train the model
-    trainer.fit(model)
-    trainer.test(model)
+    trainer.fit(model, train_loader, val_loader)
+    trainer.test(model, test_loader)
 
     # Print best model path
     checkpoint_callback = None
