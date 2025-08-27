@@ -31,6 +31,7 @@ if __name__ == '__main__':
                 fourier = np.zeros((len(features), 12))
 
                 for i, bar in local_scores.iterrows():
+                    assert bar['bar_num'] >= 0, f"bar_num is negative: {bar['bar_num']}"
                     beats = bar['beats']
                     mask = (frame_centers >= beats[0]) & (frame_centers < beats[-1])
                     for idx in np.where(mask)[0]:
