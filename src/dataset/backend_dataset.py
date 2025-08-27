@@ -196,17 +196,7 @@ class BackendSegmentDataset(Dataset):
         beat_indices = posenc_full[:, 1]
         bar_indices = posenc_full[:, 0]
         assert torch.all((beat_indices < 0) == (bar_indices < 0)), f"Negative beat indices must correspond to negative bar indices: {beat_indices} {bar_indices}"
-        
-        # Debug: Check what bar indices are in the data
-        valid_bars = bar_indices[bar_indices >= 0]
-        print(f"Debug filtering: segment starts at {bar_idx}, data has bars [{valid_bars.min():.1f}, {valid_bars.max():.1f}]")
-        
         bar_mask = (posenc_full[:, 0] >= bar_idx) & (posenc_full[:, 0] < bar_idx + self.num_consecutive_bars)
-        
-        # Debug: Check what bar indices passed the filter
-        filtered_bars = bar_indices[bar_mask]
-        if len(filtered_bars) > 0:
-            print(f"Debug filtering: after filter, selected bars [{filtered_bars.min():.1f}, {filtered_bars.max():.1f}]")
         
         frame_indices = torch.where(bar_mask)[0]
         if len(frame_indices) > 0:
@@ -217,17 +207,10 @@ class BackendSegmentDataset(Dataset):
             segment_offsets = track['offsets'][start_frame:end_frame]
             segment_frames = track['frames'][start_frame:end_frame]
             segment_posenc = track['posenc'][start_frame:end_frame]
-            
-            # Debug: Check bar indices before adjustment
-            original_bar_indices = segment_posenc[:, 0]
-            print(f"Debug segment {bar_idx}: original bar indices range [{original_bar_indices.min():.1f}, {original_bar_indices.max():.1f}]")
+            assert segment_posenc[:, 0].min() == segment_posenc[0, 0], f"Segment posenc is not sorted: {segment_posenc[:, 0].min()} {segment_posenc[0, 0]}"
             
             # Adjust position encoding for this segment
             adjusted_posenc = self.adjust_frame_level_posenc(segment_posenc, bar_idx)
-            
-            # Debug: Check bar indices after adjustment
-            adjusted_bar_indices = adjusted_posenc[:, 0]
-            print(f"Debug segment {bar_idx}: adjusted bar indices range [{adjusted_bar_indices.min():.1f}, {adjusted_bar_indices.max():.1f}]")
 
         else:
             # Handle empty case
