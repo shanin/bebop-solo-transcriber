@@ -191,6 +191,7 @@ class BackendSegmentDataset(Dataset):
         # Find the frame indices corresponding to the selected bars
         # posenc contains [bar_idx, beat_idx, ...] in first two columns
         posenc_full = track['posenc']
+        assert bar_idx >= 0, f"bar_idx is negative: {bar_idx}"
         bar_mask = (posenc_full[:, 0] >= bar_idx) & (posenc_full[:, 0] < bar_idx + self.num_consecutive_bars)
         
         frame_indices = torch.where(bar_mask)[0]
