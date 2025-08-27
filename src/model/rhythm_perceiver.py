@@ -742,9 +742,9 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         mask = bin_level['mask'].view(-1) # [batch*bars*bins]
         
         # Compute loss
-        loss_pitch = self._rhythm_instructed_loss(bin_logits, targets, mask) 
-        loss_rhythm = self.rhythm_criterion(rhythm_logits, rhythm_targets)
-        loss = loss_pitch + self.rhythm_loss_weight * loss_rhythm
+            loss_pitch = self._rhythm_instructed_loss(bin_logits, targets, mask) 
+            loss_rhythm = self.rhythm_criterion(rhythm_logits, rhythm_targets)
+            loss = loss_pitch + self.rhythm_loss_weight * loss_rhythm
                 
         # Log differently for train vs val to reduce noise
         if mode == 'train':
@@ -798,35 +798,35 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         mask = bin_level['mask'].view(-1) # [batch*bars*bins]
         
         # Generate structured predictions
-        structured_predictions = self._generate_structured_predictions(bin_logits, rhythm_logits)
+            structured_predictions = self._generate_structured_predictions(bin_logits, rhythm_logits)
 
-        # Compute token-level accuracy
-        token_accuracy = (structured_predictions == targets).float().mean()
-        
-        # Compute voiced bin detection accuracy
-        voiced_bin_accuracy = self._compute_voiced_bin_accuracy(structured_predictions, targets)
+            # Compute token-level accuracy
+            token_accuracy = (structured_predictions == targets).float().mean()
+            
+            # Compute voiced bin detection accuracy
+            voiced_bin_accuracy = self._compute_voiced_bin_accuracy(structured_predictions, targets)
 
-        # Compute onset precision, recall, and f1
-        onset_precision = self._compute_onset_precision(structured_predictions, targets)
-        onset_recall = self._compute_onset_recall(structured_predictions, targets)
-        onset_f1 = self._compute_onset_f1(structured_predictions, targets)
-        special_pitch_accuracy = self._compute_special_pitch_accuracy(structured_predictions, targets)
-        
-        # Compute rhythm accuracy from bin predictions
-        pred_tokens = structured_predictions.view(batch_size, num_bars, seq_len)
-        true_tokens = targets.view(batch_size, num_bars, seq_len)
-        #rhythm_accuracy = self._compute_bare_rhythm_accuracy(pred_tokens, rhythm_targets)
-        
-        # Compute pianoroll-level accuracy
-        pred_pianoroll = self._tokens_to_pianoroll(pred_tokens)
-        true_pianoroll = self._tokens_to_pianoroll(true_tokens)
-        pianoroll_accuracy = self._compute_pianoroll_accuracy(pred_pianoroll, true_pianoroll)
-        
-        # Compute rhythm accuracy from rhythm predictions
-        rhythm_predictions = torch.argmax(rhythm_logits, dim=-1)
-        pred_rhythm_tokens = rhythm_predictions.view(batch_size, num_bars, rhythm_seq_len)
-        true_rhythm_tokens = rhythm_targets.view(batch_size, num_bars, rhythm_seq_len)
-        rhythm_accuracy_from_rhythm_predictions = (pred_rhythm_tokens == true_rhythm_tokens).float().mean()
+            # Compute onset precision, recall, and f1
+            onset_precision = self._compute_onset_precision(structured_predictions, targets)
+            onset_recall = self._compute_onset_recall(structured_predictions, targets)
+            onset_f1 = self._compute_onset_f1(structured_predictions, targets)
+            special_pitch_accuracy = self._compute_special_pitch_accuracy(structured_predictions, targets)
+            
+            # Compute rhythm accuracy from bin predictions
+            pred_tokens = structured_predictions.view(batch_size, num_bars, seq_len)
+            true_tokens = targets.view(batch_size, num_bars, seq_len)
+            #rhythm_accuracy = self._compute_bare_rhythm_accuracy(pred_tokens, rhythm_targets)
+            
+            # Compute pianoroll-level accuracy
+            pred_pianoroll = self._tokens_to_pianoroll(pred_tokens)
+            true_pianoroll = self._tokens_to_pianoroll(true_tokens)
+            pianoroll_accuracy = self._compute_pianoroll_accuracy(pred_pianoroll, true_pianoroll)
+            
+            # Compute rhythm accuracy from rhythm predictions
+            rhythm_predictions = torch.argmax(rhythm_logits, dim=-1)
+            pred_rhythm_tokens = rhythm_predictions.view(batch_size, num_bars, rhythm_seq_len)
+            true_rhythm_tokens = rhythm_targets.view(batch_size, num_bars, rhythm_seq_len)
+            rhythm_accuracy_from_rhythm_predictions = (pred_rhythm_tokens == true_rhythm_tokens).float().mean()
 
         # Log test metrics - only show most important ones in progress bar
         self.log(f'{mode}_token_accuracy', token_accuracy, on_step=False, on_epoch=True, prog_bar=True)
@@ -852,7 +852,6 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
             mode='min',
             factor=0.5,
             patience=3,
-            verbose=True,
             min_lr=1e-6
         )
         
