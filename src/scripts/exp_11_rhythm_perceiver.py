@@ -84,13 +84,13 @@ if __name__ == "__main__":
     parser.add_argument("--crnn_dir", type=str, required=True, help="Directory for CRNN data")
     parser.add_argument("--posenc_dir", type=str, required=True, help="Directory for position encoding data")
     parser.add_argument("--bars_dir", type=str, required=True, help="Directory for bars data")
-    parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
+    parser.add_argument("--batch_size", type=int, default=64, help="Batch size")
     parser.add_argument("--num_consecutive_bars", type=int, default=8, help="Number of consecutive bars per segment")
 
     # Training arguments
     parser.add_argument("--experiment_name", type=str, default="exp_11_rhythm_perceiver", help="W&B experiment name")
     parser.add_argument("--max_epochs", type=int, default=100, help="Maximum training epochs")
-    parser.add_argument("--learning_rate", type=float, default=1e-3, help="Learning rate")
+    parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate")
     parser.add_argument("--weight_decay", type=float, default=0.01, help="Weight decay")
     parser.add_argument("--rhythm_loss_weight", type=float, default=1.0, help="Rhythm loss weight")
     parser.add_argument("--embedding_dim", type=int, default=128, help="Embedding dimension")
