@@ -37,6 +37,7 @@ def main(args):
         project_name="solo-transcriber",
         experiment_name=args.experiment_name,
         rhythm_loss_weight=args.rhythm_loss_weight,
+        label_smoothing=args.label_smoothing,
     )
 
     # Create trainer with proper WandbLogger and memory optimizations
@@ -46,7 +47,7 @@ def main(args):
         check_val_every_n_epoch=1,
         log_every_n_steps=100,
         enable_checkpointing=True,
-        gradient_clip_val=1.0,
+        gradient_clip_val=args.gradient_clip_val,
         callbacks=[
             pl.callbacks.ModelCheckpoint(
                 monitor="val_loss",
@@ -99,15 +100,17 @@ if __name__ == "__main__":
     parser.add_argument("--experiment_name", type=str, default="exp_11_rhythm_perceiver", help="W&B experiment name")
     parser.add_argument("--max_epochs", type=int, default=100, help="Maximum training epochs")
     parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate")
-    parser.add_argument("--weight_decay", type=float, default=0.05, help="Weight decay")
+    parser.add_argument("--weight_decay", type=float, default=0.01, help="Weight decay")
     parser.add_argument("--rhythm_loss_weight", type=float, default=1.0, help="Rhythm loss weight")
     parser.add_argument("--embedding_dim", type=int, default=128, help="Embedding dimension")
     parser.add_argument("--num_heads", type=int, default=8, help="Number of attention heads")
     parser.add_argument("--num_layers", type=int, default=6, help="Number of layers")
     parser.add_argument("--num_backend_heads", type=int, default=8, help="Number of backend attention heads")
     parser.add_argument("--num_backend_layers", type=int, default=2, help="Number of backend layers")
-    parser.add_argument("--dropout", type=float, default=0.3, help="Dropout rate")
+    parser.add_argument("--dropout", type=float, default=0.15, help="Dropout rate")
     parser.add_argument("--early_stopping_patience", type=int, default=5, help="Early stopping patience")
+    parser.add_argument("--label_smoothing", type=float, default=0.05, help="Label smoothing factor")
+    parser.add_argument("--gradient_clip_val", type=float, default=1.0, help="Gradient clipping value")
     
     args = parser.parse_args()
     
