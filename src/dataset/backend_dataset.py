@@ -192,6 +192,10 @@ class BackendSegmentDataset(Dataset):
         # posenc contains [bar_idx, beat_idx, ...] in first two columns
         posenc_full = track['posenc']
         assert bar_idx >= 0, f"bar_idx is negative: {bar_idx}"
+        # Assert that negative beat indices correspond to negative bar indices and vice versa
+        beat_indices = posenc_full[:, 1]
+        bar_indices = posenc_full[:, 0]
+        assert torch.all((beat_indices < 0) == (bar_indices < 0)), "Negative beat indices must correspond to negative bar indices"
         bar_mask = (posenc_full[:, 0] >= bar_idx) & (posenc_full[:, 0] < bar_idx + self.num_consecutive_bars)
         
         frame_indices = torch.where(bar_mask)[0]
