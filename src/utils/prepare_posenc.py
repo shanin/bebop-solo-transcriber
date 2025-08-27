@@ -36,7 +36,7 @@ if __name__ == '__main__':
                     for idx in np.where(mask)[0]:
                         bar_index[idx] = bar.bar_num
                     for i in range(4):
-                        mask = (frame_centers > beats[i]) & (frame_centers < beats[i+1])
+                        mask = (frame_centers >= beats[i]) & (frame_centers < beats[i+1])
                         for idx in np.where(mask)[0]:
                             beat_index[idx] = i
                             delta = (beats[i+1] - beats[i])
