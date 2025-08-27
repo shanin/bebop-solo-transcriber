@@ -46,6 +46,7 @@ def main(args):
         check_val_every_n_epoch=1,
         log_every_n_steps=100,
         enable_checkpointing=True,
+        gradient_clip_val=1.0,
         callbacks=[
             pl.callbacks.ModelCheckpoint(
                 monitor="val_loss",
@@ -54,7 +55,14 @@ def main(args):
                 save_last=True,
                 filename=f'{args.experiment_name}-{{epoch:02d}}-{{val_loss:.4f}}',
                 auto_insert_metric_name=False,
-            )
+            ),
+            pl.callbacks.LearningRateMonitor(logging_interval='epoch'),
+            pl.callbacks.EarlyStopping(
+                monitor="val_loss",
+                patience=args.early_stopping_patience,
+                mode="min",
+                verbose=True,
+            ),
         ],
         logger=model.wandb_logger,
     )
@@ -91,14 +99,15 @@ if __name__ == "__main__":
     parser.add_argument("--experiment_name", type=str, default="exp_11_rhythm_perceiver", help="W&B experiment name")
     parser.add_argument("--max_epochs", type=int, default=100, help="Maximum training epochs")
     parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate")
-    parser.add_argument("--weight_decay", type=float, default=0.01, help="Weight decay")
+    parser.add_argument("--weight_decay", type=float, default=0.05, help="Weight decay")
     parser.add_argument("--rhythm_loss_weight", type=float, default=1.0, help="Rhythm loss weight")
     parser.add_argument("--embedding_dim", type=int, default=128, help="Embedding dimension")
     parser.add_argument("--num_heads", type=int, default=8, help="Number of attention heads")
     parser.add_argument("--num_layers", type=int, default=6, help="Number of layers")
     parser.add_argument("--num_backend_heads", type=int, default=8, help="Number of backend attention heads")
     parser.add_argument("--num_backend_layers", type=int, default=2, help="Number of backend layers")
-    parser.add_argument("--dropout", type=float, default=0.1, help="Dropout rate")
+    parser.add_argument("--dropout", type=float, default=0.3, help="Dropout rate")
+    parser.add_argument("--early_stopping_patience", type=int, default=5, help="Early stopping patience")
     
     args = parser.parse_args()
     

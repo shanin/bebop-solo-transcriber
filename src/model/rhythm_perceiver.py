@@ -642,9 +642,9 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
             num_rhythm_classes=44,
         )
 
-        # Loss function
-        self.bin_criterion = nn.CrossEntropyLoss()
-        self.rhythm_criterion = nn.CrossEntropyLoss()
+        # Loss function with label smoothing to reduce overfitting
+        self.bin_criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+        self.rhythm_criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
         
         # Initialize wandb
         if experiment_name == "default":
@@ -749,14 +749,14 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         # Log differently for train vs val to reduce noise
         if mode == 'train':
             # For training: only log per-epoch to reduce console noise
-            self.log(f'{mode}_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{mode}_loss', loss, on_step=False, on_epoch=True, prog_bar=False)
             self.log(f'{mode}_loss_pitch', loss_pitch, on_step=False, on_epoch=True, prog_bar=False)
             self.log(f'{mode}_loss_rhythm', loss_rhythm, on_step=False, on_epoch=True, prog_bar=False)
         else:
             # For validation: log both step and epoch
-            self.log(f'{mode}_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
-            self.log(f'{mode}_loss_pitch', loss_pitch, on_step=False, on_epoch=True, prog_bar=True)
-            self.log(f'{mode}_loss_rhythm', loss_rhythm, on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{mode}_loss', loss, on_step=False, on_epoch=True, prog_bar=False)
+            self.log(f'{mode}_loss_pitch', loss_pitch, on_step=False, on_epoch=True, prog_bar=False)
+            self.log(f'{mode}_loss_rhythm', loss_rhythm, on_step=False, on_epoch=True, prog_bar=False)
 
         return loss
 
@@ -839,13 +839,30 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         self.log(f'{mode}_special_pitch_accuracy', special_pitch_accuracy, on_step=False, on_epoch=True, prog_bar=False)
 
         
-    def configure_optimizers(self) -> torch.optim.Optimizer:
+    def configure_optimizers(self):
         optimizer = torch.optim.AdamW(
             self.parameters(),
             lr=self.hparams.learning_rate,
             weight_decay=self.hparams.weight_decay
         )
-        return optimizer
+        
+        # Add learning rate scheduler to reduce overfitting
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode='min',
+            factor=0.5,
+            patience=3,
+            verbose=True,
+            min_lr=1e-6
+        )
+        
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val_loss",
+            },
+        }
     
     def predict_step(self, batch: Dict[str, Dict[str, torch.Tensor]], batch_idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         # Extract data from new backend dataset structure
