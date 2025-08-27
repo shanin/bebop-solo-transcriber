@@ -23,6 +23,7 @@ if __name__ == '__main__':
             for song in range(1, 49):
                 local_scores = scores[scores['participant'] == participant]
                 local_scores = local_scores[local_scores['song'] == song]
+                local_scores = local_scores[local_scores['double_time'] == False]
                 features = np.load(os.path.join(args.input_dir, f'FS{participant}_{song:02d}.onsets.npy'))
                 bar_index = [-1] * len(features)
                 beat_index = [-1] * len(features)
