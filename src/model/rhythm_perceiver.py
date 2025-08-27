@@ -615,7 +615,8 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
                  weight_decay: float = 0.01,
                  project_name: str = "solo-transcriber",
                  experiment_name: str = "default",
-                 rhythm_loss_weight: float = 1.0
+                 rhythm_loss_weight: float = 1.0,
+                 label_smoothing: float = 0.05
     ):
         """
         Args:
@@ -642,9 +643,9 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
             num_rhythm_classes=44,
         )
 
-        # Loss function with label smoothing to reduce overfitting
-        self.bin_criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
-        self.rhythm_criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+        # Loss function with configurable label smoothing
+        self.bin_criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+        self.rhythm_criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
         
         # Initialize wandb
         if experiment_name == "default":
@@ -846,12 +847,12 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
             weight_decay=self.hparams.weight_decay
         )
         
-        # Add learning rate scheduler to reduce overfitting
+        # Add learning rate scheduler - less aggressive
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             mode='min',
-            factor=0.5,
-            patience=3,
+            factor=0.7,  # Less aggressive reduction (was 0.5)
+            patience=5,  # More patience (was 3)
             min_lr=1e-6
         )
         
