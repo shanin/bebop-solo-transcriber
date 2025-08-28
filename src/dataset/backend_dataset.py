@@ -379,7 +379,7 @@ class BackendSegmentInferenceDataset(Dataset):
         self.disable_rhythm_classifier = disable_rhythm_classifier
         
         # Build index of all possible segments
-        num_bars = self.track['posenc'][:, 0].max()
+        num_bars = int(self.track['posenc'][:, 0].max())
         for i in range(0, num_bars - self.num_consecutive_bars + 1, self.num_consecutive_bars):
             self.index.append(i)
     
