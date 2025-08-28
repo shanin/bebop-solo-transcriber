@@ -1,23 +1,23 @@
+import os
+import numpy as np
+import argparse
 
 from src.dataset.frontend_dataset import FrontendTrackDataset, FrontendSegmentDataset
-from src.model.crnn_frontend import MusicTranscriptionLightning
 from src.dataset.backend_dataset import BackendSegmentInferenceDataset, backend_inference_segment_collate_fn
+from src.model.crnn_frontend import MusicTranscriptionLightning
 from src.model.rhythm_perceiver import RhythmPerceiverLightningModule
-import sys
-import numpy as np
-from src.dataset.frontend_dataset import FilosaxFrontendTrackDataset, FrontendSegmentDataset, FrontendTrackDataset
-from torch.utils.data import DataLoader
-import pytorch_lightning as pl
+
 import torch
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
-import os
-import argparse
+from torch.utils.data import DataLoader
+
+
 from torchlibrosa.stft import Spectrogram, LogmelFilterBank
 import librosa
-from madmom.features import (DBNDownBeatTrackingProcessor, RNNDownBeatProcessor) 
-import os
-import pyloudnorm as pyln
 import torchaudio
+
+from madmom.features import (DBNDownBeatTrackingProcessor, RNNDownBeatProcessor) 
+import pyloudnorm as pyln
+
 
 model_name = 'best-model-epoch=12-val_loss=0.01.ckpt'
 checkpoint_path = 'wandb_logs/bebop-solo-transcriber/819zvtw6/checkpoints/'
@@ -191,6 +191,8 @@ def backend_inference(args):
     return predictions
 
 if __name__ == '__main__':
+    print(f"Starting RhythmPerceiver inference")
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--audio_sax', type=str, required=True, help='Path to the audio file (separated audio)')
     parser.add_argument('--audio_background', type=str, required=True, help='Path to the audio file (background audio)')
