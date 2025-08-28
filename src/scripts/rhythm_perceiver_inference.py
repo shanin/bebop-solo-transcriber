@@ -19,9 +19,6 @@ from madmom.features import (DBNDownBeatTrackingProcessor, RNNDownBeatProcessor)
 import pyloudnorm as pyln
 
 
-model_name = 'best-model-epoch=12-val_loss=0.01.ckpt'
-checkpoint_path = 'wandb_logs/bebop-solo-transcriber/819zvtw6/checkpoints/'
-
 def loudnorm(x, sr, target_lufs=-23.0):
     peak_normalized_audio = pyln.normalize.peak(x, -1.0)
     meter = pyln.Meter(sr)
@@ -215,7 +212,7 @@ if __name__ == '__main__':
     parser.add_argument("--top_db", type=float, default=None, help="Top dB for amplitude to dB conversion")
 
     # frontend parameters
-    parser.add_argument('--frontend_checkpoint', type=str, required=True, default=checkpoint_path + model_name)
+    parser.add_argument('--frontend_checkpoint', type=str, required=True)
     parser.add_argument("--frames", type=int, default=500, help="Number of frames")
     parser.add_argument("--overlap", type=int, default=50, help="Overlap between frames")
     parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
@@ -231,6 +228,9 @@ if __name__ == '__main__':
     parser.add_argument('--num_consecutive_bars', type=int, default=8, help='Number of consecutive bars')
 
     args = parser.parse_args()
+    print('DEBUG')
+    model = RhythmPerceiverLightningModule.load_from_checkpoint("solo-transcriber/1hd13zyo/checkpoints/rp1-05-0.7701.ckpt")
+    print('SUCCESS')
     prediction = backend_inference(args)
     np.save(args.output_dir + '/prediction.npy', prediction)
     print(f"Saved prediction to {args.output_dir}/prediction.npy")
