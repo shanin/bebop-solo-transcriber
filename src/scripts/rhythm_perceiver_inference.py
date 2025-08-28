@@ -2,7 +2,7 @@ import os
 import numpy as np
 import argparse
 
-from src.dataset.frontend_dataset import FrontendTrackDataset, FrontendSegmentDataset
+from src.dataset.frontend_dataset import FrontendInferenceSegmentDataset
 from src.dataset.backend_dataset import BackendSegmentInferenceDataset, backend_inference_segment_collate_fn
 from src.model.crnn_frontend import MusicTranscriptionLightning
 from src.model.rhythm_perceiver import RhythmPerceiverLightningModule
@@ -99,7 +99,7 @@ def frontend_inference(args, audio_path, frontend_checkpoint_path):
 
     melspec = extract_melspec(args, audio_path, args.fragment_start, args.fragment_end)
     track = {'mel_spec': melspec}
-    segments = FrontendSegmentDataset([track], num_consecutive_frames = args.frames, use_cache = False, overlap_frames = args.overlap)
+    segments = FrontendInferenceSegmentDataset([track], num_consecutive_frames = args.frames, use_cache = False, overlap_frames = args.overlap)
     loader = DataLoader(segments, batch_size=args.batch_size, shuffle=False, num_workers=0)
     onsets = []
     offsets = []
