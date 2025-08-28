@@ -167,7 +167,7 @@ def generate_posenc(features, beats):
     posenc = np.concatenate([bar_index, beat_index, frame_phase, fourier], axis=-1)
     return posenc
 
-def backend_inference(args):
+def backend_inference(args, model):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     frames, onsets, offsets = frontend_inference(args, args.audio_sax, args.frontend_checkpoint)
     beats = beat_tracking_inference(args)
@@ -175,8 +175,6 @@ def backend_inference(args):
     track = {'onsets': onsets, 'offsets': offsets, 'frames': frames, 'posenc': posenc}
     segments = BackendSegmentInferenceDataset(track, num_consecutive_bars = args.num_consecutive_bars, use_cache = False)
     loader = DataLoader(segments, batch_size=args.batch_size, shuffle=False, num_workers=0, collate_fn=backend_inference_segment_collate_fn)
-    print(f"Loading model from {args.backend_checkpoint}")
-    model = RhythmPerceiverLightningModule.load_from_checkpoint(args.backend_checkpoint)
     model.eval()
     model.to(device)
     print(f"Running RhythmPerceiver")
@@ -229,8 +227,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     print('DEBUG')
-    model = RhythmPerceiverLightningModule.load_from_checkpoint("solo-transcriber/1hd13zyo/checkpoints/rp1-05-0.7701.ckpt")
+    backend_model = RhythmPerceiverLightningModule.load_from_checkpoint(args.backend_checkpoint)
     print('SUCCESS')
-    prediction = backend_inference(args)
+    prediction = backend_inference(args, backend_model)
     np.save(args.output_dir + '/prediction.npy', prediction)
     print(f"Saved prediction to {args.output_dir}/prediction.npy")
