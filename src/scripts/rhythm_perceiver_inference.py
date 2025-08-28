@@ -172,7 +172,12 @@ def backend_inference(args, model):
     frames, onsets, offsets = frontend_inference(args, args.audio_sax, args.frontend_checkpoint)
     beats = beat_tracking_inference(args)
     posenc = generate_posenc(frames, beats)
-    track = {'onsets': onsets, 'offsets': offsets, 'frames': frames, 'posenc': posenc}
+    track = {
+        'onsets': torch.from_numpy(onsets).float().to(device),
+        'offsets': torch.from_numpy(offsets).float().to(device), 
+        'frames': torch.from_numpy(frames).float().to(device),
+        'posenc': torch.from_numpy(posenc).float().to(device)
+    }
     segments = BackendSegmentInferenceDataset(track, num_consecutive_bars = args.num_consecutive_bars, use_cache = False)
     loader = DataLoader(segments, batch_size=args.batch_size, shuffle=False, num_workers=0, collate_fn=backend_inference_segment_collate_fn)
     model.eval()
@@ -226,9 +231,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_consecutive_bars', type=int, default=8, help='Number of consecutive bars')
 
     args = parser.parse_args()
-    print('DEBUG')
     backend_model = RhythmPerceiverLightningModule.load_from_checkpoint(args.backend_checkpoint)
-    print('SUCCESS')
     prediction = backend_inference(args, backend_model)
     np.save(args.output_dir + '/prediction.npy', prediction)
     print(f"Saved prediction to {args.output_dir}/prediction.npy")
