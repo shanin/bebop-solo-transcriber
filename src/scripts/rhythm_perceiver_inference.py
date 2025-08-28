@@ -173,10 +173,10 @@ def backend_inference(args, model):
     beats = beat_tracking_inference(args)
     posenc = generate_posenc(frames, beats)
     track = {
-        'onsets': torch.from_numpy(onsets).float(),
-        'offsets': torch.from_numpy(offsets).float(), 
-        'frames': torch.from_numpy(frames).float(),
-        'posenc': torch.from_numpy(posenc).float()
+        'onsets': torch.from_numpy(onsets).float().to(device),
+        'offsets': torch.from_numpy(offsets).float().to(device), 
+        'frames': torch.from_numpy(frames).float().to(device),
+        'posenc': torch.from_numpy(posenc).float().to(device)
     }
     segments = BackendSegmentInferenceDataset(track, num_consecutive_bars = args.num_consecutive_bars, use_cache = False)
     loader = DataLoader(segments, batch_size=args.batch_size, shuffle=False, num_workers=0, collate_fn=backend_inference_segment_collate_fn)
@@ -185,7 +185,15 @@ def backend_inference(args, model):
     print(f"Running RhythmPerceiver")
     predictions = []
     for batch in loader:
-        output = model(batch)
+        # Move batch tensors to device
+        frame_level = {k: v.to(device) for k, v in batch['frame_level'].items()}
+        batch_on_device = {
+            'frame_level': frame_level,
+            'frame_mask': batch['frame_mask'].to(device),
+            'bin_position_encoding': batch['bin_position_encoding'].to(device),
+            'beat_position_encoding': batch['beat_position_encoding'].to(device),
+        }
+        output = model(batch_on_device)
         current_prediction = model._generate_structured_predictions(output[0], output[1])
         predictions.append(current_prediction)
     return predictions
