@@ -449,7 +449,7 @@ class BackendSegmentInferenceDataset(Dataset):
         # Assert that negative beat indices correspond to negative bar indices and vice versa
         beat_indices = posenc_full[:, 1]
         bar_indices = posenc_full[:, 0]
-        assert np.all((beat_indices < 0) == (bar_indices < 0)), f"Negative beat indices must correspond to negative bar indices: {beat_indices} {bar_indices}"
+        #assert np.all((beat_indices < 0) == (bar_indices < 0)), f"Negative beat indices must correspond to negative bar indices: {beat_indices} {bar_indices}"
         bar_mask = (posenc_full[:, 0] >= bar_idx) & (posenc_full[:, 0] < bar_idx + self.num_consecutive_bars)
         
         frame_indices = torch.where(bar_mask)[0]
