@@ -16,7 +16,7 @@ from torchlibrosa.stft import Spectrogram, LogmelFilterBank
 import librosa
 from madmom.features import (DBNDownBeatTrackingProcessor, RNNDownBeatProcessor) 
 import os
-import pyln
+import pyloudnorm as pyln
 import torchaudio
 
 model_name = 'best-model-epoch=12-val_loss=0.01.ckpt'
