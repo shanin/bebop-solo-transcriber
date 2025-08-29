@@ -239,6 +239,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_consecutive_bars', type=int, default=8, help='Number of consecutive bars')
 
     args = parser.parse_args()
+    with open(f'{args.output_dir}/args.json', 'w') as f:
+        json.dump(args.__dict__, f)
     backend_model = RhythmPerceiverLightningModule.load_from_checkpoint(args.backend_checkpoint)
     prediction = backend_inference(args, backend_model)
     
