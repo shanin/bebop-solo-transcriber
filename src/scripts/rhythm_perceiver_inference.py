@@ -57,10 +57,11 @@ def extract_melspec(args, audio_path, fragment_start, fragment_end):
         freeze_parameters=True
     ).to(device)
 
-    x, sr = torchaudio.load(audio_path, frame_offset=fragment_start * args.sample_rate, num_frames=fragment_end * args.sample_rate)
+    x, sr = torchaudio.load(audio_path)
     if x.shape[0] > 1:
         x = x.mean(dim=0, keepdim=True)
-
+    x = x[:,fragment_start*sr : fragment_end*sr]
+    
     # Apply loudnorm
     x_numpy = x.squeeze().numpy()
     x_normalized = loudnorm(x_numpy, sr)
