@@ -194,7 +194,7 @@ def backend_inference(args, model):
             'beat_position_encoding': batch['beat_position_encoding'].to(device),
         }
         output = model(batch_on_device)
-        current_prediction = model._generate_structured_predictions(output[0], output[1])
+        current_prediction = model._generate_structured_predictions(output[0].view(-1, 128), output[1].view(-1, 44))
         predictions.append(current_prediction)
     return predictions
 
