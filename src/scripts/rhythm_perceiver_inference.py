@@ -241,5 +241,15 @@ if __name__ == '__main__':
     args = parser.parse_args()
     backend_model = RhythmPerceiverLightningModule.load_from_checkpoint(args.backend_checkpoint)
     prediction = backend_inference(args, backend_model)
-    np.save(args.output_dir + '/prediction.npy', prediction)
+    
+    # Convert prediction to CPU numpy array for saving
+    if isinstance(prediction, torch.Tensor):
+        prediction_cpu = prediction.cpu().numpy()
+    elif isinstance(prediction, list) and len(prediction) > 0 and isinstance(prediction[0], torch.Tensor):
+        # If it's a list of tensors, concatenate them and move to CPU
+        prediction_cpu = torch.cat(prediction).cpu().numpy()
+    else:
+        prediction_cpu = prediction
+    
+    np.save(args.output_dir + '/prediction.npy', prediction_cpu)
     print(f"Saved prediction to {args.output_dir}/prediction.npy")
