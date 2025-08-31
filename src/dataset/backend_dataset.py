@@ -475,7 +475,9 @@ class BackendSegmentInferenceDataset(Dataset):
             assert segment_posenc[:, 0].min() == segment_posenc[0, 0], f"Segment posenc is not sorted: {segment_posenc[:, 0].min()} {segment_posenc[0, 0]}"
             
             # Adjust position encoding for this segment
-            adjusted_posenc = self.adjust_frame_level_posenc(segment_posenc, bar_idx)
+            # For overlapping segments, we need to account for bars that will be skipped during reconstruction
+            effective_start_bar = bar_idx + bars_to_skip
+            adjusted_posenc = self.adjust_frame_level_posenc(segment_posenc, effective_start_bar)
 
         else:
             # Handle empty case
