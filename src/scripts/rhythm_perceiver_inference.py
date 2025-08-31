@@ -7,6 +7,7 @@ from src.dataset.frontend_dataset import FrontendInferenceSegmentDataset
 from src.dataset.backend_dataset import BackendSegmentInferenceDataset, backend_inference_segment_collate_fn
 from src.model.crnn_frontend import MusicTranscriptionLightning
 from src.model.rhythm_perceiver import RhythmPerceiverLightningModule
+from src.utils.score_renderer import ints_to_musicxml
 
 import torch
 from torch.utils.data import DataLoader
@@ -194,11 +195,11 @@ def backend_inference(args, model):
     print(f"Running RhythmPerceiver on {len(segments)} segments")
     
     predictions = []
-    segment_metadata = []
     
     for batch in loader:
         # Move batch tensors to device
         frame_level = {k: v.to(device) for k, v in batch['frame_level'].items()}
+        current_batch_size = batch['bin_position_encoding'].shape[0]
         batch_on_device = {
             'frame_level': frame_level,
             'frame_mask': batch['frame_mask'].to(device),
@@ -206,14 +207,11 @@ def backend_inference(args, model):
             'beat_position_encoding': batch['beat_position_encoding'].to(device),
         }
         output = model(batch_on_device)
-        current_prediction = model._generate_structured_predictions(output[0].view(-1, 128), output[1].view(-1, 44))
-        predictions.append(current_prediction)
-        segment_metadata.append(batch['meta'])
-    
-    # Reconstruct the full track by handling overlapping segments
-    reconstructed_predictions = reconstruct_overlapping_segments(predictions, segment_metadata)
-    
-    return reconstructed_predictions
+        current_prediction = model._generate_structured_predictions(output[0].view(-1, 128), output[1].view(-1, 44)).view(current_batch_size, -1, 48)
+        for i, elem in enumerate(current_prediction):
+            predictions.append(elem[batch['meta']['bars_to_skip'][i]:])
+    prediction_cpu = torch.cat(predictions).cpu().numpy().reshape(-1)
+    return prediction_cpu
 
 if __name__ == '__main__':
     print(f"Starting RhythmPerceiver inference")
@@ -260,15 +258,6 @@ if __name__ == '__main__':
         json.dump(args.__dict__, f)
     backend_model = RhythmPerceiverLightningModule.load_from_checkpoint(args.backend_checkpoint)
     prediction = backend_inference(args, backend_model)
-    
-    # Convert prediction to CPU numpy array for saving
-    if isinstance(prediction, torch.Tensor):
-        prediction_cpu = prediction.cpu().numpy()
-    elif isinstance(prediction, list) and len(prediction) > 0 and isinstance(prediction[0], torch.Tensor):
-        # If it's a list of tensors, concatenate them and move to CPU
-        prediction_cpu = torch.cat(prediction).cpu().numpy()
-    else:
-        prediction_cpu = prediction
-    
-    np.save(args.output_dir + '/prediction.npy', prediction_cpu)
+    np.save(args.output_dir + '/prediction.npy', prediction)
+    ints_to_musicxml(prediction, args.output_dir + '/prediction.musicxml', bpm=args.bpm)
     print(f"Saved prediction to {args.output_dir}/prediction.npy")
