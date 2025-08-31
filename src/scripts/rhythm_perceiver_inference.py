@@ -60,8 +60,11 @@ def extract_melspec(args, audio_path, fragment_start, fragment_end):
     x, sr = torchaudio.load(audio_path)
     if x.shape[0] > 1:
         x = x.mean(dim=0, keepdim=True)
-    x = x[:,fragment_start*sr : fragment_end*sr]
-    
+    if fragment_end is not None:
+        x = x[:,fragment_start*sr : fragment_end*sr]
+    else:
+        x = x[:,fragment_start*sr:]
+
     # Apply loudnorm
     x_numpy = x.squeeze().numpy()
     x_normalized = loudnorm(x_numpy, sr)
@@ -125,7 +128,11 @@ def beat_tracking_inference(args):
     in_processor = RNNDownBeatProcessor()
 
     y, sr = librosa.load(str(args.audio_background), sr=44100)
-    y = y[int(args.fragment_start * sr):int(args.fragment_end * sr)]  # Remove first 5 seconds
+    if args.fragment_end is not None:
+        y = y[int(args.fragment_start * sr):int(args.fragment_end * sr)]
+    else:
+        y = y[int(args.fragment_start * sr):]
+    
     activations = in_processor(y)
     beats = processor(activations)
 
