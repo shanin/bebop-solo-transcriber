@@ -381,7 +381,18 @@ class BackendSegmentInferenceDataset(Dataset):
         # Build index of all possible segments
         num_bars = int(self.track['posenc'][:, 0].max())
         for i in range(0, num_bars - self.num_consecutive_bars + 1, self.num_consecutive_bars):
-            self.index.append(i)
+            self.index.append((i, 0))  # (start_bar, bars_to_skip)
+        
+        # Check if there's a remainder at the end and add a final segment that ends on the last complete bar
+        if self.index:
+            last_segment_start, _ = self.index[-1]
+            last_segment_end = last_segment_start + self.num_consecutive_bars
+            if last_segment_end < num_bars:
+                # There's a remainder - add a final segment that ends exactly on the last complete bar
+                final_segment_start = num_bars - self.num_consecutive_bars
+                if final_segment_start > last_segment_start:  # Avoid duplicate if they're the same
+                    bars_to_skip = last_segment_end - final_segment_start  # How many bars overlap with previous segment
+                    self.index.append((final_segment_start, bars_to_skip))
     
     def __len__(self):
         return len(self.index)
@@ -435,7 +446,7 @@ class BackendSegmentInferenceDataset(Dataset):
         return adjusted_posenc
     
     def __getitem__(self, idx):
-        bar_idx = self.index[idx]
+        bar_idx, bars_to_skip = self.index[idx]
         track = self.track
         
         # Create bin-level position encoding
@@ -483,7 +494,10 @@ class BackendSegmentInferenceDataset(Dataset):
         segment = {
             'frame_level': frame_level_data,
             'bin_position_encoding': bin_position_encoding,
-            'beat_position_encoding': beat_position_encoding
+            'beat_position_encoding': beat_position_encoding,
+            'meta': {
+                'bars_to_skip': bars_to_skip
+            }
         }
             
         return segment
@@ -557,9 +571,15 @@ def backend_inference_segment_collate_fn(batch):
             
             batched_frame_level[key] = padded_tensor
     
+    # Handle metadata
+    meta_data = {
+        'bars_to_skip': [item['meta']['bars_to_skip'] for item in batch],
+    }
+    
     return {
         'frame_level': batched_frame_level,
         'frame_mask': frame_mask,  # Single mask for all frame-level data
         'bin_position_encoding': bin_position_encoding,
         'beat_position_encoding': beat_position_encoding,
+        'meta': meta_data,
     }

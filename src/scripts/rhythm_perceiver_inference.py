@@ -191,8 +191,11 @@ def backend_inference(args, model):
     loader = DataLoader(segments, batch_size=args.batch_size, shuffle=False, num_workers=0, collate_fn=backend_inference_segment_collate_fn)
     model.eval()
     model.to(device)
-    print(f"Running RhythmPerceiver")
+    print(f"Running RhythmPerceiver on {len(segments)} segments")
+    
     predictions = []
+    segment_metadata = []
+    
     for batch in loader:
         # Move batch tensors to device
         frame_level = {k: v.to(device) for k, v in batch['frame_level'].items()}
@@ -205,7 +208,12 @@ def backend_inference(args, model):
         output = model(batch_on_device)
         current_prediction = model._generate_structured_predictions(output[0].view(-1, 128), output[1].view(-1, 44))
         predictions.append(current_prediction)
-    return predictions
+        segment_metadata.append(batch['meta'])
+    
+    # Reconstruct the full track by handling overlapping segments
+    reconstructed_predictions = reconstruct_overlapping_segments(predictions, segment_metadata)
+    
+    return reconstructed_predictions
 
 if __name__ == '__main__':
     print(f"Starting RhythmPerceiver inference")
