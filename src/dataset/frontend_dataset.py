@@ -20,7 +20,7 @@ class FrontendTrackDataset(Dataset):
         self.all_label_files = [f for f in sorted(os.listdir(data_dir_y)) if f.endswith(f'.frame_labels.npy') ]
         self.all_x_files = [f.replace('.frame_labels.npy', f'.melspec.{j}.npy') for f in self.all_label_files for j in range(self.min_pitch_shift, self.max_pitch_shift + 1)]
         self.all_y_files = [f for f in self.all_label_files for j in range(self.min_pitch_shift, self.max_pitch_shift + 1)]
-        self.all_pitch_shifts = [j for _ in self.all_labels_files for j in range(self.min_pitch_shift, self.max_pitch_shift + 1)]
+        self.all_pitch_shifts = [j for _ in self.all_label_files for j in range(self.min_pitch_shift, self.max_pitch_shift + 1)]
 
         self.split = split
         self.instrument = 'none'
