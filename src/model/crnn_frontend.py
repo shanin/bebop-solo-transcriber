@@ -529,7 +529,8 @@ class MusicTranscriptionLightning(pl.LightningModule):
         project_name="bebop-solo-transcriber", 
         experiment_name="crnn_training",
         max_epochs=100,
-        patience=10
+        patience=10,
+        limit_train_batches=1.0
     ):
         """
         Create a complete trainer setup with WandbLogger and callbacks.
@@ -539,6 +540,7 @@ class MusicTranscriptionLightning(pl.LightningModule):
             experiment_name (str): W&B run name  
             max_epochs (int): Maximum training epochs
             patience (int): Early stopping patience
+            limit_train_batches (float): Fraction of training data to use per epoch (0.1 = 10%)
             
         Returns:
             tuple: (trainer, wandb_logger) configured for training
@@ -575,7 +577,8 @@ class MusicTranscriptionLightning(pl.LightningModule):
             callbacks=[early_stop_callback, checkpoint_callback],
             log_every_n_steps=10,
             gradient_clip_val=1.0,
-            enable_progress_bar=True
+            enable_progress_bar=True,
+            limit_train_batches=limit_train_batches  # Limit training data per epoch
         )
         
         return trainer, wandb_logger

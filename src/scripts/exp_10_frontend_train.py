@@ -79,7 +79,8 @@ def main(args):
         project_name="bebop-solo-transcriber",
         experiment_name=args.experiment_name,
         max_epochs=args.max_epochs,
-        patience=args.patience
+        patience=args.patience,
+        limit_train_batches=args.limit_train_batches
     )
 
     # Train the model
@@ -116,6 +117,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_epochs", type=int, default=100, help="Maximum training epochs")
     parser.add_argument("--learning_rate", type=float, default=1e-3, help="Learning rate")
     parser.add_argument("--patience", type=int, default=10, help="Early stopping patience")
+    parser.add_argument("--limit_train_batches", type=float, default=1.0, help="Fraction of training data to use per epoch (0.1 = 10%)")
     
     # Loss weight arguments
     parser.add_argument("--onset_weight", type=float, default=1.0, help="Onset loss weight")
@@ -127,6 +129,7 @@ if __name__ == "__main__":
     
     print(f"Starting experiment: {args.experiment_name}")
     print(f"Batch size: {args.batch_size}, Frames: {args.frames}")
+    print(f"Training data limit: {args.limit_train_batches:.1%} per epoch")
     print(f"Loss weights - Onset: {args.onset_weight}, Offset: {args.offset_weight}, Frame: {args.frame_weight}, Velocity: {args.velocity_weight}")
     
     main(args)
