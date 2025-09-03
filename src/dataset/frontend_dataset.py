@@ -16,9 +16,10 @@ class FrontendTrackDataset(Dataset):
         self.min_pitch_shift = min_pitch_shift
         self.max_pitch_shift = max_pitch_shift
 
-        self.all_x_files = [f for f in sorted(os.listdir(data_dir_x)) if f.endswith(f'.npy') and '.melspec' in f]
+        #self.all_x_files = [f for f in sorted(os.listdir(data_dir_x)) if f.endswith(f'.npy') and '.melspec' in f]
         self.all_y_files = [f for f in sorted(os.listdir(data_dir_y)) if f.endswith(f'.frame_labels.npy')]
-        self.all_pitch_shifts = [0] * len(self.all_x_files)
+        self.all_x_files = [f.replace('.frame_labels.npy', f'.melspec.{j}.npy') for f in self.all_y_files for j in range(self.min_pitch_shift, self.max_pitch_shift + 1)]
+        self.all_pitch_shifts = [j for _ in self.all_y_files for j in range(self.min_pitch_shift, self.max_pitch_shift + 1)]
 
         self.split = split
         self.instrument = 'none'
@@ -95,6 +96,7 @@ class FilosaxFrontendTrackDataset(FrontendTrackDataset):
         self.train_pitch_shifts = [k for i in range(1, 6) for j in range(1, 46) for k in range(self.min_pitch_shift, self.max_pitch_shift + 1)]
         self.val_pitch_shifts = [0 for i in range(5)]
         self.test_pitch_shifts = [0 for i in range(15)]
+
 
 
 class FrontendSegmentDataset(Dataset):
