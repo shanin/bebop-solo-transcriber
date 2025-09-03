@@ -47,7 +47,8 @@ if __name__ == "__main__":
   f_max = args.f_max if args.f_max is not None else args.sample_rate // 2
   
   data_list = pd.read_csv(args.data_list)
-  device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+  #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+  device = 'cpu'
   print('Preparing mel spectrogram computation on device: ', device)
   print(f'Parameters: sample_rate={args.sample_rate}, window_size={args.window_size}, hop_length={hop_length}')
   print(f'Mel bins={args.n_mels}, fmin={args.f_min}, fmax={f_max}')
