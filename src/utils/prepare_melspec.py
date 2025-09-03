@@ -100,7 +100,7 @@ if __name__ == "__main__":
           x = x.mean(dim=0, keepdim=True)
         
         if args.pitch_correction:
-          tuning = librosa.estimate_tuning(x.squeeze().numpy(), sr)
+          tuning = librosa.estimate_tuning(y = x.squeeze().numpy(), sr = sr)
         else:
           tuning = 0
 
