@@ -12,33 +12,43 @@ from torch.utils.data import ConcatDataset, WeightedRandomSampler
 def main(args):
     # Set tensor core optimization for A100 GPU
     torch.set_float32_matmul_precision('medium')
-    
-    filosax_dir_x = os.path.join(args.data_dir_x, 'filosax')
+
+    filosax_dir_x_L2 = os.path.join(args.data_dir_x, 'uvr_filosax_L2')
+    filosax_dir_x_L5 = os.path.join(args.data_dir_x, 'uvr_filosax_L5')
+    filosax_dir_x_L8 = os.path.join(args.data_dir_x, 'uvr_filosax_L8')
     filosax_dir_y = os.path.join(args.data_dir_y, 'filosax')
+
     wjd_dir_x = os.path.join(args.data_dir_x, 'wjd')
     wjd_dir_y = os.path.join(args.data_dir_y, 'wjd')
 
-    filosax_train = FilosaxFrontendTrackDataset(data_dir_x=filosax_dir_x, data_dir_y=filosax_dir_y, split = 'train')
-    filosax_train_segments = FrontendSegmentDataset(filosax_train, num_consecutive_frames = args.frames, use_cache = False)
+    filosax_train_L2 = FilosaxFrontendTrackDataset(data_dir_x=filosax_dir_x_L2, data_dir_y=filosax_dir_y, split = 'train', min_pitch_shift = 0, max_pitch_shift = 0)
+    filosax_train_segments_L2 = FrontendSegmentDataset(filosax_train_L2, num_consecutive_frames = args.frames, use_cache = False)
 
-    filosax_val = FilosaxFrontendTrackDataset(data_dir_x=filosax_dir_x, data_dir_y=filosax_dir_y, split = 'val')
+    filosax_train_L5 = FilosaxFrontendTrackDataset(data_dir_x=filosax_dir_x_L5, data_dir_y=filosax_dir_y, split = 'train', min_pitch_shift = 0, max_pitch_shift = 0)
+    filosax_train_segments_L5 = FrontendSegmentDataset(filosax_train_L5, num_consecutive_frames = args.frames, use_cache = False)
+
+    #filosax_train_L8 = FilosaxFrontendTrackDataset(data_dir_x=filosax_dir_x_L8, data_dir_y=filosax_dir_y, split = 'train', min_pitch_shift = 0, max_pitch_shift = 0)
+    #filosax_train_segments_L8 = FrontendSegmentDataset(filosax_train_L8, num_consecutive_frames = args.frames, use_cache = False)
+
+    filosax_val = FilosaxFrontendTrackDataset(data_dir_x=filosax_dir_x_L8, data_dir_y=filosax_dir_y, split = 'val')
     filosax_val_segments = FrontendSegmentDataset(filosax_val, num_consecutive_frames = args.frames, use_cache = False)
     filosax_val_loader = DataLoader(filosax_val_segments, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
-    filosax_test = FilosaxFrontendTrackDataset(data_dir_x=filosax_dir_x, data_dir_y=filosax_dir_y, split = 'test')
+    filosax_test = FilosaxFrontendTrackDataset(data_dir_x=filosax_dir_x_L8, data_dir_y=filosax_dir_y, split = 'test')
     filosax_test_segments = FrontendSegmentDataset(filosax_test, num_consecutive_frames = args.frames, use_cache = False)
     filosax_test_loader = DataLoader(filosax_test_segments, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
-    wjd_train = FrontendTrackDataset(data_dir_x=wjd_dir_x, data_dir_y=wjd_dir_y)
+    wjd_train = FrontendTrackDataset(data_dir_x=wjd_dir_x, data_dir_y=wjd_dir_y, min_pitch_shift = 0, max_pitch_shift = 0)
     wjd_train_segments = FrontendSegmentDataset(wjd_train, num_consecutive_frames = args.frames, use_cache = False)
 
-    dataset_train = ConcatDataset([filosax_train_segments, wjd_train_segments])
-    len_filosax = len(filosax_train_segments)
+    dataset_train = ConcatDataset([filosax_train_segments_L5, filosax_train_segments_L2, wjd_train_segments])
+    len_filosax_L5 = len(filosax_train_segments_L5)
+    len_filosax_L2 = len(filosax_train_segments_L2)
     len_wjd = len(wjd_train_segments)
 
-    weight_filosax = 0.5
-    weight_wjd = 0.5
-    weights = [weight_filosax] * len_filosax + [weight_wjd] * len_wjd
+    weight_filosax = 0.4
+    weight_wjd = 0.6
+    weights = [weight_filosax] * [len_filosax_L5] + [weight_filosax] * [len_filosax_L2] + [weight_wjd] * len_wjd
 
     sampler = WeightedRandomSampler(
         weights=torch.DoubleTensor(weights),
