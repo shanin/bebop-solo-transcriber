@@ -21,10 +21,10 @@ def main(args):
     wjd_dir_x = os.path.join(args.data_dir_x, 'wjd')
     wjd_dir_y = os.path.join(args.data_dir_y, 'wjd')
 
-    filosax_train_L2 = FilosaxFrontendTrackDataset(data_dir_x=filosax_dir_x_L2, data_dir_y=filosax_dir_y, split = 'train', min_pitch_shift = 0, max_pitch_shift = 0)
+    filosax_train_L2 = FilosaxFrontendTrackDataset(data_dir_x=filosax_dir_x_L2, data_dir_y=filosax_dir_y, split = 'train', min_pitch_shift = -3, max_pitch_shift = 8)
     filosax_train_segments_L2 = FrontendSegmentDataset(filosax_train_L2, num_consecutive_frames = args.frames, use_cache = False)
 
-    filosax_train_L5 = FilosaxFrontendTrackDataset(data_dir_x=filosax_dir_x_L5, data_dir_y=filosax_dir_y, split = 'train', min_pitch_shift = 0, max_pitch_shift = 0)
+    filosax_train_L5 = FilosaxFrontendTrackDataset(data_dir_x=filosax_dir_x_L5, data_dir_y=filosax_dir_y, split = 'train', min_pitch_shift = -3, max_pitch_shift = 8)
     filosax_train_segments_L5 = FrontendSegmentDataset(filosax_train_L5, num_consecutive_frames = args.frames, use_cache = False)
 
     #filosax_train_L8 = FilosaxFrontendTrackDataset(data_dir_x=filosax_dir_x_L8, data_dir_y=filosax_dir_y, split = 'train', min_pitch_shift = 0, max_pitch_shift = 0)
@@ -38,7 +38,7 @@ def main(args):
     filosax_test_segments = FrontendSegmentDataset(filosax_test, num_consecutive_frames = args.frames, use_cache = False)
     filosax_test_loader = DataLoader(filosax_test_segments, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
-    wjd_train = FrontendTrackDataset(data_dir_x=wjd_dir_x, data_dir_y=wjd_dir_y, min_pitch_shift = 0, max_pitch_shift = 0)
+    wjd_train = FrontendTrackDataset(data_dir_x=wjd_dir_x, data_dir_y=wjd_dir_y, min_pitch_shift = -3, max_pitch_shift = 3)
     wjd_train_segments = FrontendSegmentDataset(wjd_train, num_consecutive_frames = args.frames, use_cache = False)
 
     dataset_train = ConcatDataset([filosax_train_segments_L5, filosax_train_segments_L2, wjd_train_segments])
@@ -46,8 +46,8 @@ def main(args):
     len_filosax_L2 = len(filosax_train_segments_L2)
     len_wjd = len(wjd_train_segments)
 
-    weight_filosax = 0.5
-    weight_wjd = 0.5
+    weight_filosax = 0.4
+    weight_wjd = 0.6
     weights = [weight_filosax / 2] * len_filosax_L5 + [weight_filosax / 2] * len_filosax_L2 + [weight_wjd] * len_wjd
 
     sampler = WeightedRandomSampler(
