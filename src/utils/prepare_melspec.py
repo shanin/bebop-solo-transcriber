@@ -33,8 +33,9 @@ if __name__ == "__main__":
   parser.add_argument("--ref", type=float, default=1.0, help="Reference value for dB conversion")
   parser.add_argument("--amin", type=float, default=1e-10, help="Minimum value for log")
   parser.add_argument("--top_db", type=float, default=None, help="Top dB for amplitude to dB conversion")
-  parser.add_argument("--pitch_shift_min", type=float, default=0.0, help="Minimum pitch shift in semitones")
-  parser.add_argument("--pitch_shift_max", type=float, default=0.0, help="Maximum pitch shift in semitones")
+  parser.add_argument("--pitch_shift_min", type=int, default=0.0, help="Minimum pitch shift in semitones")
+  parser.add_argument("--pitch_shift_max", type=int, default=0.0, help="Maximum pitch shift in semitones")
+  parser.add_argument("--pitch_correction", type=bool, default=False, help="Whether to correct pitch")
   args = parser.parse_args()
 
   os.makedirs(args.output_folder, exist_ok=True)
@@ -97,9 +98,14 @@ if __name__ == "__main__":
         if x.shape[0] > 1:
           x = x.mean(dim=0, keepdim=True)
         
+        if args.pitch_correction:
+          tuning = librosa.estimate_tuning(x.squeeze().numpy(), sr)
+        else:
+          tuning = 0
+
         # Apply pitch shift
         if pitch_shift != 0:
-          x = librosa.effects.pitch_shift(x.squeeze().numpy(), sr, pitch_shift, bins_per_octave=12)
+          x = librosa.effects.pitch_shift(x.squeeze().numpy(), sr, pitch_shift + tuning, bins_per_octave=12)
           x = torch.from_numpy(x).unsqueeze(0).to(device)
 
         # Apply loudnorm
