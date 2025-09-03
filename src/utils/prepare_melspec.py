@@ -105,7 +105,7 @@ if __name__ == "__main__":
 
         # Apply pitch shift
         if pitch_shift != 0:
-          x = librosa.effects.pitch_shift(x.squeeze().numpy(), sr, pitch_shift + tuning, bins_per_octave=12)
+          x = librosa.effects.pitch_shift(x.squeeze().numpy(), sr=sr, n_steps=pitch_shift + tuning, bins_per_octave=12)
           x = torch.from_numpy(x).unsqueeze(0).to(device)
 
         # Apply loudnorm
