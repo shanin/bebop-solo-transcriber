@@ -101,6 +101,7 @@ if __name__ == "__main__":
         
         if args.pitch_correction:
           tuning = librosa.estimate_tuning(y = x.squeeze().numpy(), sr = sr)
+          print(f"Tuning: {tuning}")
         else:
           tuning = 0
 
