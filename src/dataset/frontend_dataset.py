@@ -92,7 +92,7 @@ class FilosaxFrontendTrackDataset(FrontendTrackDataset):
                     [f'FS{i}_47.frame_labels.npy' for i in range(1, 6)] + \
                     [f'FS{i}_48.frame_labels.npy' for i in range(1, 6)]
         self.val_files_y = [f'FS{i}_45.frame_labels.npy' for i in range(1, 6)]
-        self.train_files_y = [f'FS{i}_{j}.frame_labels.npy' for i in range(1, 6) for j in range(1, 46) for _ in range(self.min_pitch_shift, self.max_pitch_shift + 1)]
+        self.train_files_y = [f'FS{i}_{j:02d}.frame_labels.npy' for i in range(1, 6) for j in range(1, 46) for _ in range(self.min_pitch_shift, self.max_pitch_shift + 1)]
         self.train_pitch_shifts = [k for i in range(1, 6) for j in range(1, 46) for k in range(self.min_pitch_shift, self.max_pitch_shift + 1)]
         self.val_pitch_shifts = [0 for i in range(5)]
         self.test_pitch_shifts = [0 for i in range(15)]
