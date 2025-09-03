@@ -46,9 +46,9 @@ def main(args):
     len_filosax_L2 = len(filosax_train_segments_L2)
     len_wjd = len(wjd_train_segments)
 
-    weight_filosax = 0.4
-    weight_wjd = 0.6
-    weights = [weight_filosax] * [len_filosax_L5] + [weight_filosax] * [len_filosax_L2] + [weight_wjd] * len_wjd
+    weight_filosax = 0.5
+    weight_wjd = 0.5
+    weights = [weight_filosax / 2] * len_filosax_L5 + [weight_filosax / 2] * len_filosax_L2 + [weight_wjd] * len_wjd
 
     sampler = WeightedRandomSampler(
         weights=torch.DoubleTensor(weights),
