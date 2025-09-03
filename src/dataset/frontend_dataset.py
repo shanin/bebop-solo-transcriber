@@ -10,12 +10,15 @@ import numpy as np
 from functools import partial
 
 class FrontendTrackDataset(Dataset):
-    def __init__(self, data_dir_x=None, data_dir_y=None,  split: str = 'all'):
+    def __init__(self, data_dir_x=None, data_dir_y=None, split: str = 'all', min_pitch_shift: int = 0, max_pitch_shift: int = 0):
         self.data_dir_x = data_dir_x
         self.data_dir_y = data_dir_y
+        self.min_pitch_shift = min_pitch_shift
+        self.max_pitch_shift = max_pitch_shift
 
-        self.all_x_files = [f for f in sorted(os.listdir(data_dir_x)) if f.endswith(f'.melspec.npy')]
+        self.all_x_files = [f for f in sorted(os.listdir(data_dir_x)) if f.endswith(f'.npy') and '.melspec' in f]
         self.all_y_files = [f for f in sorted(os.listdir(data_dir_y)) if f.endswith(f'.frame_labels.npy')]
+        self.all_pitch_shifts = [0] * len(self.all_x_files)
 
         self.split = split
         self.instrument = 'none'
@@ -27,35 +30,48 @@ class FrontendTrackDataset(Dataset):
         if self.split == 'train':
             self.files_x = self.train_files_x
             self.files_y = self.train_files_y
+            self.pitch_shifts = self.train_pitch_shifts
         elif self.split == 'val':
             self.files_x = self.val_files_x
             self.files_y = self.val_files_y
+            self.pitch_shifts = self.val_pitch_shifts
         elif self.split == 'test':
             self.files_x = self.test_files_x
             self.files_y = self.test_files_y
-        elif self.split == 'xr_test':
-            self.files_x = self.xr_test_files_x
-            self.files_y = self.xr_test_files_y
+            self.pitch_shifts = self.test_pitch_shifts
         elif self.split == 'all':
             self.files_x = self.all_x_files 
             self.files_y = self.all_y_files
+            self.pitch_shifts = self.all_pitch_shifts
         else:
             assert False, f"Invalid split: {self.split}"
 
     def __len__(self):
         return len(self.files_x)
 
+    def perform_pitch_shift(self, y, shift):
+        y['onset'] = np.roll(y['onset'], shift)
+        y['offset'] = np.roll(y['offset'], shift)
+        y['frames'] = np.roll(y['frames'], shift)
+        return y
+
     def __getitem__(self, idx):
         file_path_x = os.path.join(self.data_dir_x, self.files_x[idx])
         file_path_y = os.path.join(self.data_dir_y, self.files_y[idx])
         x = np.load(file_path_x, allow_pickle=True)
         y = np.load(file_path_y, allow_pickle=True).item()
-        assert file_path_x.split('.')[-1] == file_path_y.split('.')[-1], f"File names do not match: {file_path_x} and {file_path_y}"
+        file_x = file_path_x.split('/')[-1].split('.')[0]
+        file_y = file_path_y.split('/')[-1].split('.')[0]
+        assert file_x == file_y, f"File names do not match: {file_x} and {file_y}"
         length = min(x.shape[0], y['onset'].shape[0], y['offset'].shape[0], y['frames'].shape[0])
         x = x[:length]
         y['onset'] = y['onset'][:length]
         y['offset'] = y['offset'][:length]
         y['frames'] = y['frames'][:length]
+
+        if self.pitch_shifts[idx] != 0:
+            y = self.perform_pitch_shift(y, self.pitch_shifts[idx])
+
         return {
             'mel_spec': x,
             'onset': y['onset'],
@@ -66,16 +82,19 @@ class FrontendTrackDataset(Dataset):
 
 class FilosaxFrontendTrackDataset(FrontendTrackDataset):
     def prepare_splits(self):
-        self.test_files_x = [f'FS{i}_46.melspec.npy' for i in range(1, 6)] + \
-                    [f'FS{i}_47.melspec.npy' for i in range(1, 6)] + \
-                    [f'FS{i}_48.melspec.npy' for i in range(1, 6)]
-        self.val_files_x = [f'FS{i}_45.melspec.npy' for i in range(1, 6)]
-        self.train_files_x = [f for f in self.all_x_files if f not in self.test_files_x and f not in self.val_files_x and f.endswith(f'.melspec.npy')]
+        self.test_files_x = [f'FS{i}_46.melspec.0.npy' for i in range(1, 6)] + \
+                    [f'FS{i}_47.melspec.0.npy' for i in range(1, 6)] + \
+                    [f'FS{i}_48.melspec.0.npy' for i in range(1, 6)]
+        self.val_files_x = [f'FS{i}_45.melspec.0.npy' for i in range(1, 6)]
+        self.train_files_x = [f'FS{i}_{j:02d}.melspec.{k}.npy' for i in range(1, 6) for j in range(1, 46) for k in range(self.min_pitch_shift, self.max_pitch_shift + 1)]
         self.test_files_y = [f'FS{i}_46.frame_labels.npy' for i in range(1, 6)] + \
                     [f'FS{i}_47.frame_labels.npy' for i in range(1, 6)] + \
                     [f'FS{i}_48.frame_labels.npy' for i in range(1, 6)]
         self.val_files_y = [f'FS{i}_45.frame_labels.npy' for i in range(1, 6)]
-        self.train_files_y = [f for f in self.all_y_files if f not in self.test_files_y and f not in self.val_files_y and f.endswith(f'.frame_labels.npy')]
+        self.train_files_y = [f'FS{i}_45.frame_labels.npy' for i in range(1, 6) for _ in range(1, 46) for _ in range(self.min_pitch_shift, self.max_pitch_shift + 1)]
+        self.train_pitch_shifts = [k for i in range(1, 6) for j in range(1, 46) for k in range(self.min_pitch_shift, self.max_pitch_shift + 1)]
+        self.val_pitch_shifts = [0 for i in range(5)]
+        self.test_pitch_shifts = [0 for i in range(15)]
 
 
 class FrontendSegmentDataset(Dataset):
