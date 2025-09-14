@@ -214,11 +214,19 @@ class Regress_onset_offset_frame_velocity_CRNN(nn.Module):
         reg_offset_output = self.reg_offset_model(x)    # (batch_size, time_steps, classes_num)
         velocity_output = self.velocity_model(x)    # (batch_size, time_steps, classes_num)
  
-        # Use velocities to condition onset regression
+
+        #original version:
+        x = torch.cat((reg_onset_output, (reg_onset_output ** 0.5) * velocity_output.detach()), dim=2)
+        (x, _) = self.reg_onset_gru(x)
+        x = F.dropout(x, p=0.5, training=self.training, inplace=False)
+        reg_onset_output = torch.sigmoid(self.reg_onset_fc(x))
+
+        #modified version:
         #x = torch.cat((reg_onset_output, velocity_output.detach()), dim=2)
         #(x, _) = self.reg_onset_gru(x)
         #x = F.dropout(x, p=0.5, training=self.training, inplace=False)
         #reg_onset_output = torch.sigmoid(self.reg_onset_fc(x))
+
         """(batch_size, time_steps, classes_num)"""
 
         # Use onsets and offsets to condition frame-wise classification
@@ -523,7 +531,34 @@ class MusicTranscriptionLightning(pl.LightningModule):
             tags=["crnn", "music-transcription", "onset-offset", "regression"],
             notes="Training CRNN with regression-based onset/offset detection for music transcription"
         )
-    
+        
+    # Function to load non-Lightning PyTorch weights into Lightning model for compatibility with hf_midi_transcription
+    def load_weights_from_pytorch_checkpoint(self, checkpoint_path):
+        """
+        Load PyTorch model weights into a PyTorch Lightning model.
+        
+        Args:
+            checkpoint_path: Path to the PyTorch checkpoint (.pth file)
+        """
+        # Load the checkpoint
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+        
+        # Extract model state dict
+        if isinstance(checkpoint, dict) and 'model' in checkpoint:
+            model_state_dict = checkpoint['model']
+        elif hasattr(checkpoint, 'state_dict'):
+            model_state_dict = checkpoint.state_dict()
+        else:
+            # Assume the checkpoint is already a state dict
+            model_state_dict = checkpoint
+        
+        # Load weights into the Lightning model's underlying model
+        # The Lightning wrapper stores the actual model in self.model
+        self.model.load_state_dict(model_state_dict, strict=False)
+        
+        print(f"Successfully loaded weights from {checkpoint_path}")
+
+
     @staticmethod
     def create_trainer_with_wandb(
         project_name="bebop-solo-transcriber", 
