@@ -559,6 +559,57 @@ class MusicTranscriptionLightning(pl.LightningModule):
         print(f"Successfully loaded weights from {checkpoint_path}")
 
 
+    def save_lightning_model_as_pytorch_checkpoint(self, save_path, reference_checkpoint_path=None):
+        """
+        Save PyTorch Lightning model weights in the same format as original PyTorch checkpoint.
+        
+        Args:
+            save_path: Path where to save the new checkpoint
+            reference_checkpoint_path: Path to original checkpoint to preserve structure (optional)
+        
+        Returns:
+            None
+        """
+        # Get the model state dict from Lightning model
+        model_state_dict = self.model.state_dict()
+        
+        # If we have a reference checkpoint, use its structure
+        if reference_checkpoint_path:
+            print(f"Loading reference checkpoint structure from {reference_checkpoint_path}")
+            reference_checkpoint = torch.load(reference_checkpoint_path, map_location='cpu')
+            
+            # Create new checkpoint preserving original structure
+            new_checkpoint = reference_checkpoint.copy()
+            
+            # Update only the model weights
+            new_checkpoint['model'] = model_state_dict
+            
+            # Update iteration number if you want to track it
+            if 'iteration' in new_checkpoint:
+                # You can set this to whatever makes sense for your training
+                # For now, keep the original or increment it
+                print(f"Original iteration: {new_checkpoint['iteration']}")
+                # new_checkpoint['iteration'] = new_checkpoint['iteration'] + 1  # Uncomment to increment
+                
+        else:
+            # Create minimal checkpoint structure if no reference
+            new_checkpoint = {
+                'iteration': 0,  # You can set this appropriately
+                'model': model_state_dict,
+                'sampler': None  # Placeholder - original might have sampler state
+            }
+        
+        # Save the checkpoint
+        torch.save(new_checkpoint, save_path)
+        print(f"Successfully saved Lightning model weights to {save_path}")
+        
+        # Verify the saved checkpoint
+        verification = torch.load(save_path, map_location='cpu')
+        print(f"Verification - saved checkpoint keys: {list(verification.keys())}")
+        print(f"Model state dict size: {len(verification['model'])} parameters")
+        
+        return new_checkpoint
+
     @staticmethod
     def create_trainer_with_wandb(
         project_name="bebop-solo-transcriber", 
