@@ -293,6 +293,98 @@ class MusicTranscriptionLightning(pl.LightningModule):
         """Forward pass through the model."""
         return self.model(x)
     
+    def _create_velocity_targets_from_onsets(self, onset_target):
+        """
+        Create velocity targets from onset targets using vectorized local maxima detection.
+        
+        Args:
+            onset_target: (batch_size, time_steps, classes_num) onset targets
+            
+        Returns:
+            velocity_target: (batch_size, time_steps, classes_num) velocity targets (100/128 at onset positions)
+            velocity_mask: (batch_size, time_steps, classes_num) mask indicating where to compute loss
+        """
+        batch_size, time_steps, classes_num = onset_target.shape
+        
+        # Initialize velocity targets and mask
+        velocity_target = torch.zeros_like(onset_target)
+        velocity_mask = torch.zeros_like(onset_target)
+        
+        if time_steps <= 2:
+            # Handle edge case: too few time steps for meaningful peak detection
+            threshold_mask = onset_target > 0.1
+            velocity_target[threshold_mask] = 100.0 / 128.0
+            velocity_mask[threshold_mask] = 1.0
+            return velocity_target, velocity_mask
+        
+        # Vectorized local maxima detection
+        # Compare each point with its neighbors: x[t] > x[t-1] and x[t] > x[t+1]
+        
+        # Shift tensors to compare with neighbors
+        # onset_target shape: (batch_size, time_steps, classes_num)
+        left_neighbor = onset_target[:, :-2, :]   # x[:-2] -> x[t-1] for interior points
+        center = onset_target[:, 1:-1, :]         # x[1:-1] -> x[t] for interior points  
+        right_neighbor = onset_target[:, 2:, :]   # x[2:] -> x[t+1] for interior points
+        
+        # Local maxima condition for interior points (time steps 1 to time_steps-2)
+        is_greater_than_left = center > left_neighbor
+        is_greater_than_right = center > right_neighbor
+        is_above_threshold = center > 0.1
+        
+        # Combine all conditions for interior points
+        interior_maxima = is_greater_than_left & is_greater_than_right & is_above_threshold
+        
+        # Handle boundary points
+        # First point: x[0] > x[1] and x[0] > threshold
+        first_is_maxima = (onset_target[:, 0:1, :] > onset_target[:, 1:2, :]) & (onset_target[:, 0:1, :] > 0.1)
+        
+        # Last point: x[-1] > x[-2] and x[-1] > threshold  
+        last_is_maxima = (onset_target[:, -1:, :] > onset_target[:, -2:-1, :]) & (onset_target[:, -1:, :] > 0.1)
+        
+        # Combine all local maxima: first + interior + last
+        # Need to pad interior_maxima to match full time dimension
+        all_maxima = torch.cat([
+            first_is_maxima,      # (batch_size, 1, classes_num)
+            interior_maxima,      # (batch_size, time_steps-2, classes_num)  
+            last_is_maxima        # (batch_size, 1, classes_num)
+        ], dim=1)  # (batch_size, time_steps, classes_num)
+        
+        # Set velocity targets and mask at local maxima positions
+        velocity_target[all_maxima] = 100.0 / 128.0  # Normalized velocity
+        velocity_mask[all_maxima] = 1.0
+        
+        return velocity_target, velocity_mask
+    
+    def _masked_binary_cross_entropy(self, pred, target, mask):
+        """
+        Compute binary cross entropy loss only on masked positions.
+        
+        Args:
+            pred: (batch_size, time_steps, classes_num) predictions
+            target: (batch_size, time_steps, classes_num) targets  
+            mask: (batch_size, time_steps, classes_num) binary mask
+            
+        Returns:
+            loss: scalar loss value
+        """
+        # Apply mask to both predictions and targets
+        masked_pred = pred * mask
+        masked_target = target * mask
+        
+        # Calculate BCE loss
+        loss = F.binary_cross_entropy(masked_pred, masked_target, reduction='none')
+        
+        # Only average over masked positions to avoid bias from zero-padded regions
+        masked_loss = loss * mask
+        total_loss = masked_loss.sum()
+        num_masked_elements = mask.sum()
+        
+        # Avoid division by zero
+        if num_masked_elements > 0:
+            return total_loss / num_masked_elements
+        else:
+            return torch.tensor(0.0, device=pred.device)
+    
     def _calculate_losses(self, outputs, targets):
         """Calculate all loss components."""
         
@@ -315,9 +407,11 @@ class MusicTranscriptionLightning(pl.LightningModule):
         frame_loss = F.binary_cross_entropy(frame_pred, frame_target)
         
         # Binary cross-entropy for velocity prediction
-        # Create velocity targets based on frame activity
-        velocity_target = frame_target  # Simple approach: velocity = frame activity
-        velocity_loss = F.binary_cross_entropy(velocity_pred, velocity_target)
+        # Create velocity targets based on local maxima in onset targets
+        velocity_target, velocity_mask = self._create_velocity_targets_from_onsets(onset_target)
+        
+        # Calculate velocity loss only on masked positions (where onsets occur)
+        velocity_loss = self._masked_binary_cross_entropy(velocity_pred, velocity_target, velocity_mask)
         
         # Total weighted loss
         total_loss = (
