@@ -541,7 +541,7 @@ class MusicTranscriptionLightning(pl.LightningModule):
             checkpoint_path: Path to the PyTorch checkpoint (.pth file)
         """
         # Load the checkpoint
-        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+        checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
         
         # Extract model state dict
         if isinstance(checkpoint, dict) and 'model' in checkpoint:
