@@ -227,7 +227,7 @@ class Regress_onset_offset_frame_velocity_CRNN(nn.Module):
             x = F.dropout(x, p=0.5, training=self.training, inplace=False)
             reg_onset_output = torch.sigmoid(self.reg_onset_fc(x))
         
-        elif var == 3:
+        elif self.var == 3:
             x = torch.cat((reg_onset_output, (reg_onset_output.detach() ** 0.5) * velocity_output.detach()), dim=2)
             (x, _) = self.reg_onset_gru(x)
             x = F.dropout(x, p=0.5, training=self.training, inplace=False)
