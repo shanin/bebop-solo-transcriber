@@ -30,6 +30,38 @@ def prepare_annotations(row):
         'bar_num': row['bar_num'],
     }
 
+def prepare_torch_data(
+        song_score_annotations, 
+        song_rhythm_signature, 
+        song_data_flags, 
+        song_raw_rhythm_signature, 
+        song_bar_nums, 
+        output_folder, 
+        fsid, 
+        mode,
+    ):
+        # Convert lists to tensors
+    score_annotations_tensor = torch.tensor(song_score_annotations)
+    rhythm_signature_tensor = torch.tensor(song_rhythm_signature)
+    data_flags_tensor = torch.tensor(song_data_flags)
+    bar_nums_tensor = torch.tensor(song_bar_nums)
+
+    # Save tensors in a dictionary
+    torch_data = {
+        'tokens': score_annotations_tensor,
+        'rhythm_signatures': rhythm_signature_tensor,
+        'flags': data_flags_tensor,
+        'bar_nums': bar_nums_tensor
+    }
+
+    torch_data['rhythm_tokens'] = torch.stack([torch.tensor([generate_rhythm_token(x) for x in bar]) for bar in song_raw_rhythm_signature])
+    torch_data['inferred_time_feel'] = torch.stack([torch.tensor([generate_inferred_time_feel(x) for x in bar]) for bar in song_raw_rhythm_signature])
+    torch_data['source_time_feel'] = torch.tensor(mode == 'original', dtype=torch.int64)
+    torch_data['mask'] = torch.stack([torch.tensor([signature_to_mask(x) for x in bar]) for bar in song_raw_rhythm_signature])
+
+    # Save using torch.save for efficient loading
+    torch.save(torch_data, os.path.join(output_folder, f'{fsid}.{mode}.pt'))
+
 def compile_filosax(labeled_scores, output_folder):
     for participant in range(1, 6):
         for song in range(1, 49):
@@ -39,11 +71,28 @@ def compile_filosax(labeled_scores, output_folder):
             metadata = labeled_scores[labeled_scores['participant'] == participant]
             metadata = metadata[metadata['song'] == song]
 
+            shift = False
+
             song_score_annotations = []
             song_rhythm_signature = []
             song_data_flags = []
             song_raw_rhythm_signature = []
             song_bar_nums = []
+
+            # double time
+            song_score_annotations_dt = []
+            song_rhythm_signature_dt = []
+            song_data_flags_dt = []
+            song_raw_rhythm_signature_dt = []
+            song_bar_nums_dt = []
+
+            # double time + 1 beat shift
+            song_score_annotations_dts = []
+            song_rhythm_signature_dts = []
+            song_data_flags_dts = []
+            song_raw_rhythm_signature_dts = []
+            song_bar_nums_dts = []
+
             for _, row in metadata.iterrows():
                 if row['double_time'] is False:
                     bar_annotation = prepare_annotations(row)
@@ -52,28 +101,54 @@ def compile_filosax(labeled_scores, output_folder):
                     song_data_flags.append(bar_annotation['flags'])
                     song_raw_rhythm_signature.append(bar_annotation['raw_rhythm_signature'])
                     song_bar_nums.append(bar_annotation['bar_num'])
+                elif row['double_time'] is True:
+                    if row['beats'][0] == 0.5:
+                        shift = True
+                    bar_annotation = prepare_annotations(row)
+                    if shift:
+                        song_score_annotations_dts.append(bar_annotation['beatwise_score'])
+                        song_rhythm_signature_dts.append(bar_annotation['rhythm_signature'])
+                        song_data_flags_dts.append(bar_annotation['flags'])
+                        song_raw_rhythm_signature_dts.append(bar_annotation['raw_rhythm_signature'])
+                        song_bar_nums_dts.append(bar_annotation['bar_num'])
+                    else:
+                        song_score_annotations_dt.append(bar_annotation['beatwise_score'])
+                        song_rhythm_signature_dt.append(bar_annotation['rhythm_signature'])
+                        song_data_flags_dt.append(bar_annotation['flags'])
+                        song_raw_rhythm_signature_dt.append(bar_annotation['raw_rhythm_signature'])
+                        song_bar_nums_dt.append(bar_annotation['bar_num'])
 
-            # Convert lists to tensors
-            score_annotations_tensor = torch.tensor(song_score_annotations)
-            rhythm_signature_tensor = torch.tensor(song_rhythm_signature)
-            data_flags_tensor = torch.tensor(song_data_flags)
-            bar_nums_tensor = torch.tensor(song_bar_nums)
+            prepare_torch_data(song_score_annotations, 
+                song_rhythm_signature, 
+                song_data_flags, 
+                song_raw_rhythm_signature, 
+                song_bar_nums, 
+                output_folder, 
+                fsid, 
+                'original',
+            )
 
-            # Save tensors in a dictionary
-            torch_data = {
-                'tokens': score_annotations_tensor,
-                'rhythm_signatures': rhythm_signature_tensor,
-                'flags': data_flags_tensor,
-                'bar_nums': bar_nums_tensor
-            }
+            prepare_torch_data(
+                song_score_annotations_dt, 
+                song_rhythm_signature_dt, 
+                song_data_flags_dt, 
+                song_raw_rhythm_signature_dt, 
+                song_bar_nums_dt, 
+                output_folder, 
+                fsid, 
+                'double_time',
+            )
 
-            torch_data['rhythm_tokens'] = torch.stack([torch.tensor([generate_rhythm_token(x) for x in bar]) for bar in song_raw_rhythm_signature])
-            torch_data['inferred_time_feel'] = torch.stack([torch.tensor([generate_inferred_time_feel(x) for x in bar]) for bar in song_raw_rhythm_signature])
-            torch_data['source_time_feel'] = torch.tensor(True, dtype=torch.int64)
-            torch_data['mask'] = torch.stack([torch.tensor([signature_to_mask(x) for x in bar]) for bar in song_raw_rhythm_signature])
-
-            # Save using torch.save for efficient loading
-            torch.save(torch_data, os.path.join(output_folder, f'{fsid}.original.pt'))
+            prepare_torch_data(
+                song_score_annotations_dts, 
+                song_rhythm_signature_dts, 
+                song_data_flags_dts, 
+                song_raw_rhythm_signature_dts, 
+                song_bar_nums_dts, 
+                output_folder, 
+                fsid, 
+                'double_time_shifted',
+            )
 
             
 if __name__ == '__main__':
