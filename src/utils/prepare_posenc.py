@@ -84,7 +84,7 @@ if __name__ == '__main__':
                             frame_phase = [-1] * len(features)
                         prev_downbeat = bar['beats'][0]
                         assert bar['bar_num'] >= 0, f"bar_num is negative: {bar['bar_num']}"
-                        beats = bar['beats'] * 2
+                        beats = np.array(bar['beats']) * 2
                         mask = (frame_centers >= beats[0]) & (frame_centers < beats[-1])
                         for idx in np.where(mask)[0]:
                             bar_index[idx] = bar.bar_num
