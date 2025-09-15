@@ -215,13 +215,13 @@ class Regress_onset_offset_frame_velocity_CRNN(nn.Module):
         velocity_output = self.velocity_model(x)    # (batch_size, time_steps, classes_num)
  
 
-        if var == 1:
+        if self.var == 1:
             x = torch.cat((reg_onset_output, (reg_onset_output ** 0.5) * velocity_output.detach()), dim=2)
             (x, _) = self.reg_onset_gru(x)
             x = F.dropout(x, p=0.5, training=self.training, inplace=False)
             reg_onset_output = torch.sigmoid(self.reg_onset_fc(x))
 
-        elif var == 2:
+        elif self.var == 2:
             x = torch.cat((reg_onset_output, velocity_output.detach()), dim=2)
             (x, _) = self.reg_onset_gru(x)
             x = F.dropout(x, p=0.5, training=self.training, inplace=False)
@@ -366,7 +366,8 @@ class MusicTranscriptionLightning(pl.LightningModule):
     
     def _masked_binary_cross_entropy(self, pred, target, mask):
         """
-        Compute binary cross entropy loss only on masked positions.
+        Binary crossentropy (BCE) with mask. The positions where mask=0 will be 
+        deactivated when calculating BCE.
         
         Args:
             pred: (batch_size, time_steps, classes_num) predictions
@@ -376,21 +377,21 @@ class MusicTranscriptionLightning(pl.LightningModule):
         Returns:
             loss: scalar loss value
         """
-        # Apply mask to both predictions and targets
-        masked_pred = pred * mask
-        masked_target = target * mask
+        eps = 1e-7
         
-        # Calculate BCE loss
-        loss = F.binary_cross_entropy(masked_pred, masked_target, reduction='none')
+        # Clamp predictions for numerical stability
+        pred = torch.clamp(pred, eps, 1.0 - eps)
         
-        # Only average over masked positions to avoid bias from zero-padded regions
-        masked_loss = loss * mask
-        total_loss = masked_loss.sum()
-        num_masked_elements = mask.sum()
+        # Manual BCE calculation: -target*log(pred) - (1-target)*log(1-pred)
+        bce_matrix = -target * torch.log(pred) - (1.0 - target) * torch.log(1.0 - pred)
+        
+        # Apply mask and compute mean over masked positions
+        masked_sum = torch.sum(bce_matrix * mask)
+        mask_sum = torch.sum(mask)
         
         # Avoid division by zero
-        if num_masked_elements > 0:
-            return total_loss / num_masked_elements
+        if mask_sum > 0:
+            return masked_sum / mask_sum
         else:
             return torch.tensor(0.0, device=pred.device)
     
