@@ -17,6 +17,12 @@ class BackendTrackDataset(Dataset):
         self.source = source
         self.hard_transpose = hard_transpose
         self.rhythm_tokens = RHYTHM_TOKENS
+        if self.source == 'original':
+            self.posenc_suffix = '.posenc.npy'
+        elif self.source == 'double_time':
+            self.posenc_suffix = '.posenc_dt.npy'
+        elif self.source == 'double_time_shifted':
+            self.posenc_suffix = '.posenc_dts.npy'
 
         self.all_files = [f for f in sorted(os.listdir(bars_dir)) if f.endswith(f'.{source}.pt')]
 
@@ -67,7 +73,7 @@ class BackendTrackDataset(Dataset):
         frames_data = torch.from_numpy(np.load(frames_file_path)).float()
         data['frames'] = frames_data
 
-        posenc_file_path = os.path.join(self.posenc_dir, self.files[idx].replace(f'.{self.source}.pt', '.posenc.npy'))
+        posenc_file_path = os.path.join(self.posenc_dir, self.files[idx].replace(f'.{self.source}.pt', self.posenc_suffix))
         posenc_data = torch.from_numpy(np.load(posenc_file_path)).float()
         data['posenc'] = posenc_data
 
