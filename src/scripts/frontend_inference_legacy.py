@@ -20,10 +20,10 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=16)
     args = parser.parse_args()
 
-    filosax_l8 = FilosaxFrontendTrackDataset(data_dir_x=args.melspec_dir + '/uvr_filosax_L8', data_dir_y=args.frame_labels_dir + '/filosax', split = 'all', min_pitch_shift = -3, max_pitch_shift = 8)
-    filosax_l5 = FilosaxFrontendTrackDataset(data_dir_x=args.melspec_dir + '/uvr_filosax_L5', data_dir_y=args.frame_labels_dir + '/filosax', split = 'all', min_pitch_shift = -3, max_pitch_shift = 8)
-    filosax_l2 = FilosaxFrontendTrackDataset(data_dir_x=args.melspec_dir + '/uvr_filosax_L2', data_dir_y=args.frame_labels_dir + '/filosax', split = 'all', min_pitch_shift = -3, max_pitch_shift = 8)
-    wjd = FrontendTrackDataset(data_dir_x=args.melspec_dir + '/wjd', data_dir_y=args.frame_labels_dir + '/wjd', min_pitch_shift = -3, max_pitch_shift = 3)
+    filosax_l8 = FilosaxFrontendTrackDataset(data_dir_x=args.melspec_dir + '/uvr_filosax_L8', data_dir_y=args.frame_labels_dir + '/filosax', split = 'all', min_pitch_shift = 0, max_pitch_shift = 0)
+    filosax_l5 = FilosaxFrontendTrackDataset(data_dir_x=args.melspec_dir + '/uvr_filosax_L5', data_dir_y=args.frame_labels_dir + '/filosax', split = 'all', min_pitch_shift = 0, max_pitch_shift = 0)
+    filosax_l2 = FilosaxFrontendTrackDataset(data_dir_x=args.melspec_dir + '/uvr_filosax_L2', data_dir_y=args.frame_labels_dir + '/filosax', split = 'all', min_pitch_shift = 0, max_pitch_shift = 0)
+    wjd = FrontendTrackDataset(data_dir_x=args.melspec_dir + '/wjd', data_dir_y=args.frame_labels_dir + '/wjd', min_pitch_shift = 0, max_pitch_shift = 0)
 
     model = MusicTranscriptionLightning(
         mel_bins=229,
