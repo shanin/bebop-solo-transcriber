@@ -18,6 +18,7 @@ if __name__ == '__main__':
     parser.add_argument('--frame_labels_dir', type=str, required=True)
     parser.add_argument('--frames', type=int, default=500)
     parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--overlap', type=int, default=50)
     args = parser.parse_args()
 
     filosax_l8 = FilosaxFrontendTrackDataset(data_dir_x=args.melspec_dir + '/uvr_filosax_L8', data_dir_y=args.frame_labels_dir + '/filosax', split = 'all', min_pitch_shift = 0, max_pitch_shift = 0)
@@ -55,16 +56,16 @@ if __name__ == '__main__':
         raise ValueError(f'Invalid model type: {args.model_type}')
 
     for track in dataset:
-        segments = FrontendSegmentDataset([track], num_consecutive_frames = args.frames, use_cache = False)
+        segments = FrontendSegmentDataset([track], num_consecutive_frames = args.frames, use_cache = False, overlap_frames = args.overlap)
         loader = DataLoader(segments, batch_size=args.batch_size, shuffle=False, num_workers=0)
         onsets = []
         offsets = []
         frames = []
         for batch in loader:
             output = model(batch['x']['mel_spec'].to('cuda'))
-            onsets.append(output['reg_onset_output'].to('cpu').detach())
-            offsets.append(output['reg_offset_output'].to('cpu').detach())
-            frames.append(output['frame_output'].to('cpu').detach())
+            onsets.append(output['reg_onset_output'].to('cpu').detach()[:,int(args.overlap/2):-int(args.overlap/2),:])
+            offsets.append(output['reg_offset_output'].to('cpu').detach()[:,int(args.overlap/2):-int(args.overlap/2),:])
+            frames.append(output['frame_output'].to('cpu').detach()[:,int(args.overlap/2):-int(args.overlap/2),:])
         frames = np.concatenate(frames).reshape(-1, 88)[:track['mel_spec'].shape[0]]
         onsets = np.concatenate(onsets).reshape(-1, 88)[:track['mel_spec'].shape[0]]
         offsets = np.concatenate(offsets).reshape(-1, 88)[:track['mel_spec'].shape[0]]
