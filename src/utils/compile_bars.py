@@ -71,8 +71,6 @@ def compile_filosax(labeled_scores, output_folder):
             metadata = labeled_scores[labeled_scores['participant'] == participant]
             metadata = metadata[metadata['song'] == song]
 
-            shift = False
-
             song_score_annotations = []
             song_rhythm_signature = []
             song_data_flags = []
@@ -93,6 +91,7 @@ def compile_filosax(labeled_scores, output_folder):
             song_raw_rhythm_signature_dts = []
             song_bar_nums_dts = []
 
+            prev_downbeat = 0
             for _, row in metadata.iterrows():
                 if row['double_time'] is False:
                     bar_annotation = prepare_annotations(row)
@@ -102,8 +101,9 @@ def compile_filosax(labeled_scores, output_folder):
                     song_raw_rhythm_signature.append(bar_annotation['raw_rhythm_signature'])
                     song_bar_nums.append(bar_annotation['bar_num'])
                 elif row['double_time'] is True:
-                    if row['beats'][0] == 0.5:
+                    if row['beats'][0] < prev_downbeat:
                         shift = True
+                    prev_downbeat = row['beats'][0]
                     bar_annotation = prepare_annotations(row)
                     if shift:
                         song_score_annotations_dts.append(bar_annotation['beatwise_score'])
