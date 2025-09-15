@@ -92,6 +92,7 @@ def compile_filosax(labeled_scores, output_folder):
             song_bar_nums_dts = []
 
             prev_downbeat = 0
+            shift = False
             for _, row in metadata.iterrows():
                 if row['double_time'] is False:
                     bar_annotation = prepare_annotations(row)
