@@ -11,6 +11,7 @@ if __name__ == '__main__':
     parser.add_argument('--input_dir', type=str)
     parser.add_argument('--output_dir', type=str)
     parser.add_argument('--dataset', type=str, default='filosax')
+    parser.add_argument('--double_time', action='store_true')
     args = parser.parse_args()
 
     print('Loading labeled scores...')
@@ -55,4 +56,54 @@ if __name__ == '__main__':
                 
                 posenc = np.concatenate([bar_index, beat_index, frame_phase, fourier], axis=-1)
                 np.save(os.path.join(args.output_dir, f'FS{participant}_{song:02d}.posenc.npy'), posenc)
+        
+        if args.double_time:
+            for participant in range(1, 6):
+                for song in range(1, 49):
+                    local_scores = scores[scores['participant'] == participant]
+                    local_scores = local_scores[local_scores['song'] == song]
+                    local_scores = local_scores[local_scores['double_time'] == True]
+                    features = np.load(os.path.join(args.input_dir, f'FS{participant}_{song:02d}.onsets.npy'))
+                    bar_index = [-1] * len(features)
+                    beat_index = [-1] * len(features)
+                    frame_phase = [-1] * len(features)
+                    frame_centers = np.arange(len(features)) / 100 + 0.005
+                    fourier = np.zeros((len(features), 12))
 
+                    shift = False
+                    prev_downbeat = 0
+                    for i, bar in local_scores.iterrows():
+                        if bar['beats'][0] < prev_downbeat:
+                            shift = True
+                            bar_index = np.array(bar_index).reshape(-1, 1)
+                            beat_index = np.array(beat_index).reshape(-1, 1)
+                            frame_phase = np.array(frame_phase).reshape(-1, 1)
+                            posenc_dt = np.concatenate([bar_index, beat_index, frame_phase, fourier], axis=-1)
+                            bar_index = [-1] * len(features)
+                            beat_index = [-1] * len(features)
+                            frame_phase = [-1] * len(features)
+                        prev_downbeat = bar['beats'][0]
+                        assert bar['bar_num'] >= 0, f"bar_num is negative: {bar['bar_num']}"
+                        beats = bar['beats'] * 2
+                        mask = (frame_centers >= beats[0]) & (frame_centers < beats[-1])
+                        for idx in np.where(mask)[0]:
+                            bar_index[idx] = bar.bar_num
+                        for i in range(4):
+                            mask = (frame_centers >= beats[i]) & (frame_centers < beats[i+1])
+                            for idx in np.where(mask)[0]:
+                                beat_index[idx] = i
+                                delta = (beats[i+1] - beats[i])
+                                phase = (frame_centers[idx] - beats[i]) / delta
+                                frame_phase[idx] = phase
+                                for j in range(6):
+                                    fourier[idx, 2*j] = np.sin(2 * np.pi * phase * (j + 1))
+                                    fourier[idx, 2*j+1] = np.cos(2 * np.pi * phase * (j + 1))
+
+                    # Convert 1D arrays to 2D for concatenation
+                    bar_index = np.array(bar_index).reshape(-1, 1)
+                    beat_index = np.array(beat_index).reshape(-1, 1)
+                    frame_phase = np.array(frame_phase).reshape(-1, 1)
+
+                    posenc_dts = np.concatenate([bar_index, beat_index, frame_phase, fourier], axis=-1)
+                    np.save(os.path.join(args.output_dir, f'FS{participant}_{song:02d}.posenc_dt.npy'), posenc_dt)
+                    np.save(os.path.join(args.output_dir, f'FS{participant}_{song:02d}.posenc_dts.npy'), posenc_dts)
