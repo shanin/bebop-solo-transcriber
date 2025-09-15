@@ -118,6 +118,10 @@ def compile_filosax(labeled_scores, output_folder):
                         song_raw_rhythm_signature_dt.append(bar_annotation['raw_rhythm_signature'])
                         song_bar_nums_dt.append(bar_annotation['bar_num'])
 
+            print(len(song_score_annotations), len(song_rhythm_signature), len(song_data_flags), len(song_raw_rhythm_signature), len(song_bar_nums))
+            print(len(song_score_annotations_dt), len(song_rhythm_signature_dt), len(song_data_flags_dt), len(song_raw_rhythm_signature_dt), len(song_bar_nums_dt))
+            print(len(song_score_annotations_dts), len(song_rhythm_signature_dts), len(song_data_flags_dts), len(song_raw_rhythm_signature_dts), len(song_bar_nums_dts))
+
             prepare_torch_data(song_score_annotations, 
                 song_rhythm_signature, 
                 song_data_flags, 
