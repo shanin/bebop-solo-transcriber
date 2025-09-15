@@ -71,7 +71,8 @@ def main(args):
         onset_loss_weight=args.onset_weight,
         offset_loss_weight=args.offset_weight,
         frame_loss_weight=args.frame_weight,
-        velocity_loss_weight=args.velocity_weight
+        velocity_loss_weight=args.velocity_weight,
+        var=args.var
     )
 
     # Create trainer with proper WandbLogger and memory optimizations
@@ -124,7 +125,8 @@ if __name__ == "__main__":
     parser.add_argument("--offset_weight", type=float, default=1.0, help="Offset loss weight")
     parser.add_argument("--frame_weight", type=float, default=1.0, help="Frame loss weight")
     parser.add_argument("--velocity_weight", type=float, default=0.5, help="Velocity loss weight")
-    
+    parser.add_argument("--var", type=int, default=3, help="Variant of onf wiring")
+
     args = parser.parse_args()
     
     print(f"Starting experiment: {args.experiment_name}")

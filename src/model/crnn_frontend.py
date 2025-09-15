@@ -159,12 +159,12 @@ class AcousticModelCRnn8Dropout(nn.Module):
 
 
 class Regress_onset_offset_frame_velocity_CRNN(nn.Module):
-    def __init__(self, mel_bins, classes_num):
+    def __init__(self, mel_bins, classes_num, var=3):
         super(Regress_onset_offset_frame_velocity_CRNN, self).__init__()
 
         midfeat = 1792
         momentum = 0.01
-
+        self.var = var
         self.bn0 = nn.BatchNorm2d(mel_bins, momentum)
 
         self.frame_model = AcousticModelCRnn8Dropout(classes_num, midfeat, momentum)
@@ -215,17 +215,23 @@ class Regress_onset_offset_frame_velocity_CRNN(nn.Module):
         velocity_output = self.velocity_model(x)    # (batch_size, time_steps, classes_num)
  
 
-        #original version:
-        #x = torch.cat((reg_onset_output, (reg_onset_output ** 0.5) * velocity_output.detach()), dim=2)
-        #(x, _) = self.reg_onset_gru(x)
-        #x = F.dropout(x, p=0.5, training=self.training, inplace=False)
-        #reg_onset_output = torch.sigmoid(self.reg_onset_fc(x))
+        if var == 1:
+            x = torch.cat((reg_onset_output, (reg_onset_output ** 0.5) * velocity_output.detach()), dim=2)
+            (x, _) = self.reg_onset_gru(x)
+            x = F.dropout(x, p=0.5, training=self.training, inplace=False)
+            reg_onset_output = torch.sigmoid(self.reg_onset_fc(x))
 
-        #modified version:
-        #x = torch.cat((reg_onset_output, velocity_output.detach()), dim=2)
-        #(x, _) = self.reg_onset_gru(x)
-        #x = F.dropout(x, p=0.5, training=self.training, inplace=False)
-        #reg_onset_output = torch.sigmoid(self.reg_onset_fc(x))
+        elif var == 2:
+            x = torch.cat((reg_onset_output, velocity_output.detach()), dim=2)
+            (x, _) = self.reg_onset_gru(x)
+            x = F.dropout(x, p=0.5, training=self.training, inplace=False)
+            reg_onset_output = torch.sigmoid(self.reg_onset_fc(x))
+        
+        elif var == 3:
+            x = torch.cat((reg_onset_output, (reg_onset_output.detach() ** 0.5) * velocity_output.detach()), dim=2)
+            (x, _) = self.reg_onset_gru(x)
+            x = F.dropout(x, p=0.5, training=self.training, inplace=False)
+            reg_onset_output = torch.sigmoid(self.reg_onset_fc(x))
 
         """(batch_size, time_steps, classes_num)"""
 
@@ -261,7 +267,8 @@ class MusicTranscriptionLightning(pl.LightningModule):
         frame_loss_weight=1.0,
         velocity_loss_weight=1.0,
         scheduler_patience=5,
-        scheduler_factor=0.5
+        scheduler_factor=0.5,
+        var=3
     ):
         super().__init__()
         
@@ -274,7 +281,8 @@ class MusicTranscriptionLightning(pl.LightningModule):
         # Model
         self.model = Regress_onset_offset_frame_velocity_CRNN(
             mel_bins=mel_bins, 
-            classes_num=classes_num
+            classes_num=classes_num,
+            var=var
         )
         
         # Loss weights
@@ -282,6 +290,7 @@ class MusicTranscriptionLightning(pl.LightningModule):
         self.offset_loss_weight = offset_loss_weight
         self.frame_loss_weight = frame_loss_weight
         self.velocity_loss_weight = velocity_loss_weight
+        self.var = var
         
         # Learning parameters
         self.learning_rate = learning_rate
