@@ -20,8 +20,10 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=16)
     args = parser.parse_args()
 
-    filosax = FilosaxFrontendTrackDataset(data_dir_x=args.melspec_dir + '/filosax', data_dir_y=args.frame_labels_dir + '/filosax', split = 'all')
-    wjd = FrontendTrackDataset(data_dir_x=args.melspec_dir + '/wjd', data_dir_y=args.frame_labels_dir + '/wjd')
+    filosax_l8 = FilosaxFrontendTrackDataset(data_dir_x=args.melspec_dir + '/uvr_filosax_L8', data_dir_y=args.frame_labels_dir + '/filosax', split = 'all', min_pitch_shift = -3, max_pitch_shift = 8)
+    filosax_l5 = FilosaxFrontendTrackDataset(data_dir_x=args.melspec_dir + '/uvr_filosax_L5', data_dir_y=args.frame_labels_dir + '/filosax', split = 'all', min_pitch_shift = -3, max_pitch_shift = 8)
+    filosax_l2 = FilosaxFrontendTrackDataset(data_dir_x=args.melspec_dir + '/uvr_filosax_L2', data_dir_y=args.frame_labels_dir + '/filosax', split = 'all', min_pitch_shift = -3, max_pitch_shift = 8)
+    wjd = FrontendTrackDataset(data_dir_x=args.melspec_dir + '/wjd', data_dir_y=args.frame_labels_dir + '/wjd', min_pitch_shift = -3, max_pitch_shift = 3)
 
     model = MusicTranscriptionLightning(
         mel_bins=229,
@@ -37,9 +39,15 @@ if __name__ == '__main__':
     model.eval()
     model.to('cuda');
 
-    if args.model_type == 'filosax':
-        dataset = filosax
-        output_folder = args.output_dir + '/filosax'
+    if args.model_type == 'filosax_l8':
+        dataset = filosax_l8
+        output_folder = args.output_dir + '/uvr_filosax_L8'
+    elif args.model_type == 'filosax_l5':
+        dataset = filosax_l5
+        output_folder = args.output_dir + '/uvr_filosax_L5'
+    elif args.model_type == 'filosax_l2':
+        dataset = filosax_l2
+        output_folder = args.output_dir + '/uvr_filosax_L2'
     elif args.model_type == 'wjd':
         dataset = wjd
         output_folder = args.output_dir + '/wjd'
