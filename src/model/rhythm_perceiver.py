@@ -749,7 +749,7 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         rhythm_targets = bin_level['rhythm_tokens'].view(-1)  # [batch*bars*beats]
         mask = bin_level['mask'].view(-1) # [batch*bars*bins]
         if self.disable_rhythm_classifier:
-            mask = torch.ones_like(mask)
+            mask = torch.zeros_like(mask)
         # Compute loss
         loss_pitch = self._rhythm_instructed_loss(bin_logits, targets, mask) 
         loss_rhythm = self.rhythm_criterion(rhythm_logits, rhythm_targets)
