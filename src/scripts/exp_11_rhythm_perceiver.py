@@ -57,6 +57,8 @@ def main(args):
         experiment_name=args.experiment_name,
         rhythm_loss_weight=args.rhythm_loss_weight,
         label_smoothing=args.label_smoothing,
+        disable_rhythm_classifier=args.disable_rhythm_classifier,
+        disable_structural_injection=args.disable_structural_injection,
     )
 
     # Create trainer with proper WandbLogger and memory optimizations
@@ -131,6 +133,8 @@ if __name__ == "__main__":
     parser.add_argument("--label_smoothing", type=float, default=0.05, help="Label smoothing factor")
     parser.add_argument("--gradient_clip_val", type=float, default=1.0, help="Gradient clipping value")
     parser.add_argument("--double_time_augmentation", action='store_true', default=False)
+    parser.add_argument("--disable_rhythm_classifier", action='store_true', default=False)
+    parser.add_argument("--disable_structural_injection", action='store_true', default=False)
     
     args = parser.parse_args()
     

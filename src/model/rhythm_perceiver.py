@@ -617,7 +617,8 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
                  experiment_name: str = "default",
                  rhythm_loss_weight: float = 1.0,
                  label_smoothing: float = 0.05,
-                 disable_structural_injection: bool = False
+                 disable_structural_injection: bool = False,
+                 disable_rhythm_classifier: bool = False
     ):
         """
         Args:
@@ -634,6 +635,7 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
 
         self.disable_structural_injection = disable_structural_injection
         # Create model
+        bin_classes = 128 if not disable_rhythm_classifier else 130
         self.model = RhythmPerceiver(
             embedding_dim=embedding_dim,
             num_heads=num_heads,
@@ -641,7 +643,7 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
             num_backend_heads=num_backend_heads,
             num_backend_layers=num_backend_layers,
             dropout=dropout,
-            num_bin_classes=128,  # 128 MIDI pitches (0-127)
+            num_bin_classes=bin_classes,  # 128 MIDI pitches (0-127)
             num_rhythm_classes=44,
         )
 
@@ -664,6 +666,9 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         self.wandb_logger.watch(self.model, log="all", log_freq=100)
 
         self.rhythm_loss_weight = rhythm_loss_weight
+        self.disable_rhythm_classifier = disable_rhythm_classifier
+        if self.disable_rhythm_classifier:
+            self.rhythm_loss_weight = 0.0
         
     def _rhythm_instructed_loss(self, bin_logits: torch.Tensor, bin_targets: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """
@@ -743,7 +748,8 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         targets = bin_level['tokens'].view(-1)  # [batch*bars*bins]
         rhythm_targets = bin_level['rhythm_tokens'].view(-1)  # [batch*bars*beats]
         mask = bin_level['mask'].view(-1) # [batch*bars*bins]
-        
+        if self.disable_rhythm_classifier:
+            mask = torch.ones_like(mask)
         # Compute loss
         loss_pitch = self._rhythm_instructed_loss(bin_logits, targets, mask) 
         loss_rhythm = self.rhythm_criterion(rhythm_logits, rhythm_targets)
@@ -801,7 +807,10 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         mask = bin_level['mask'].view(-1) # [batch*bars*bins]
         
         # Generate structured predictions
-        structured_predictions = self._generate_structured_predictions(bin_logits, rhythm_logits)
+        if self.disable_rhythm_classifier:
+            structured_predictions = self._tokens_to_pianoroll(bin_logits)
+        else:
+            structured_predictions = self._generate_structured_predictions(bin_logits, rhythm_logits)
 
         # Compute token-level accuracy
         token_accuracy = (structured_predictions == targets).float().mean()
