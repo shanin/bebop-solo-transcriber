@@ -848,7 +848,7 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         # Compute rhythm accuracy from bin predictions
         pred_tokens = structured_predictions.view(batch_size, num_bars, seq_len)
         true_tokens = targets.view(batch_size, num_bars, seq_len)
-        rhythm_accuracy = self.bare_rhythm_accuracy(pred_tokens, rhythm_targets)
+        rhythm_accuracy = self.bare_rhythm_accuracy(pred_tokens, true_tokens)
         
         # Compute pianoroll-level accuracy
         pred_pianoroll = self._tokens_to_pianoroll(pred_tokens)
