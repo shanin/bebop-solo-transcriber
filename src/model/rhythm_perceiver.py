@@ -512,8 +512,8 @@ class TranscriptionMetrics:
     def bare_rhythm_accuracy(self, pred_tokens: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         pred_tokens_ = pred_tokens.view(-1, 12)
         targets_ = targets.view(-1, 12)
-        pred_tokens_[pred_tokens_ < 129] = 0
-        targets_[targets_ < 129] = 0
+        pred_tokens_[pred_tokens_ < 128] = 0
+        targets_[targets_ < 128] = 0
         pred_tokens_[pred_tokens_ >= 129] = 129
         targets_[targets_ >= 129] = 129
         # Compare each row of 12 elements
