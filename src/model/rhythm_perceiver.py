@@ -530,13 +530,15 @@ class TranscriptionMetrics:
                     if tokens[b, bar, t] < 128: # onset token
                         memorized_pitch = tokens[b, bar, t]
                         pianoroll[b, bar, t, memorized_pitch] = 1
-                    elif tokens[b, bar, t] == 129: # rest token
+                    elif tokens[b, bar, t] in [129, 130]: # rest token (129 or legacy 130)
                         memorized_pitch = None
                     elif tokens[b, bar, t] == 128: # tie token
                         if memorized_pitch is not None:
                             pianoroll[b, bar, t, memorized_pitch] = 1
                         #else:
                         #    pianoroll[b, bar, t, :] = -1
+                    elif tokens[b, bar, t] == 131: # special 'x' token (too fast)
+                        memorized_pitch = None  # Treat as rest for pianoroll purposes
         
         return pianoroll
 
@@ -567,8 +569,8 @@ class TranscriptionMetrics:
             torch.Tensor: Voiced bin detection accuracy (scalar)
         """
         # Convert predictions and targets to binary (voiced vs not voiced)
-        pred_voiced = predictions != 129 # not rest
-        target_voiced = targets != 129 # not rest
+        pred_voiced = ~torch.isin(predictions, torch.tensor([129, 130, 131], device=predictions.device)) # not rest or special
+        target_voiced = ~torch.isin(targets, torch.tensor([129, 130, 131], device=targets.device)) # not rest or special
         
         # Compute accuracy
         return (pred_voiced == target_voiced).float().mean()
@@ -635,7 +637,7 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
 
         self.disable_structural_injection = disable_structural_injection
         # Create model
-        bin_classes = 128 if not disable_rhythm_classifier else 130
+        bin_classes = 128 if not disable_rhythm_classifier else 132  # 132 to handle: 0-127 (pitches), 128 (tie), 129 (rest), 130 (legacy rest), 131 (special 'x')
         self.model = RhythmPerceiver(
             embedding_dim=embedding_dim,
             num_heads=num_heads,
@@ -685,11 +687,6 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         masked_bin_logits = masked_bin_logits.float()
         masked_bin_targets = masked_bin_targets.long()
         
-        # Debug: Assert target range to confirm diagnosis
-        num_classes = masked_bin_logits.shape[-1] if masked_bin_logits.numel() > 0 else 0
-        if masked_bin_targets.numel() > 0 and num_classes > 0:
-            target_min, target_max = masked_bin_targets.min().item(), masked_bin_targets.max().item()
-            assert target_min >= 0 and target_max < num_classes, f"Invalid masked targets in loss! Range: [{target_min}, {target_max}], Expected: [0, {num_classes-1}]"
         
         # Handle empty tensor case
         if masked_bin_logits.numel() == 0:
@@ -757,14 +754,6 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         if self.disable_rhythm_classifier:
             mask = torch.zeros_like(mask)
         
-        # Debug: Assert target ranges to confirm diagnosis
-        if targets.numel() > 0:
-            target_min, target_max = targets.min().item(), targets.max().item()
-            assert target_min >= 0 and target_max < num_classes, f"Invalid bin targets found! Range: [{target_min}, {target_max}], Expected: [0, {num_classes-1}]. Rhythm classifier disabled: {self.disable_rhythm_classifier}"
-        
-        if rhythm_targets.numel() > 0:
-            rhythm_min, rhythm_max = rhythm_targets.min().item(), rhythm_targets.max().item()
-            assert rhythm_min >= 0 and rhythm_max < num_rhythm_classes, f"Invalid rhythm targets found! Range: [{rhythm_min}, {rhythm_max}], Expected: [0, {num_rhythm_classes-1}]"
         
         # Compute loss
         loss_pitch = self._rhythm_instructed_loss(bin_logits, targets, mask) 
@@ -822,10 +811,6 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         rhythm_targets = bin_level['rhythm_tokens'].view(-1)  # [batch*bars*beats]
         mask = bin_level['mask'].view(-1) # [batch*bars*bins]
         
-        # Debug: Assert target ranges to confirm diagnosis  
-        if targets.numel() > 0:
-            target_min, target_max = targets.min().item(), targets.max().item()
-            assert target_min >= 0 and target_max < num_classes, f"Invalid bin targets in test! Range: [{target_min}, {target_max}], Expected: [0, {num_classes-1}]. Rhythm classifier disabled: {self.disable_rhythm_classifier}"
         
         # Generate structured predictions
         if self.disable_rhythm_classifier:
