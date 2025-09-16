@@ -396,7 +396,7 @@ class RhythmPerceiver(nn.Module):
         
         return torch.tensor(scaffold_indices, dtype=torch.long)
         
-    def forward(self, x: dict, injected_mask: torch.Tensor = None, use_teacher_forcing: bool = False) -> torch.Tensor:
+    def forward(self, x: dict, injected_mask: torch.Tensor = None, use_teacher_forcing: bool = False, disable_structural_injection: bool = False) -> torch.Tensor:
         """
         Args:
             x: Dictionary containing:
@@ -437,7 +437,7 @@ class RhythmPerceiver(nn.Module):
         # Get rhythm logits and predictions
         rhythm_logits = self.rhythm_output_projection(rhythm_encoded)  # [batch, bars*beats, num_rhythm_classes]
         
-        if use_teacher_forcing and injected_mask is not None:
+        if use_teacher_forcing and injected_mask is not None and not disable_structural_injection:
             mask_flat = injected_mask.view(batch_size, -1)  # [batch, bars*bins]
             
             # Ensure mask has correct length for 48 bins per bar
@@ -495,7 +495,7 @@ class RhythmPerceiver(nn.Module):
         
         return bin_logits, rhythm_logits
     
-    def predict(self, x: dict, injected_mask: torch.Tensor = None) -> torch.Tensor:
+    def predict(self, x: dict, injected_mask: torch.Tensor = None, disable_structural_injection: bool = False) -> torch.Tensor:
         """
         Args:
             x: Same as forward()
@@ -504,7 +504,7 @@ class RhythmPerceiver(nn.Module):
         Returns:
             torch.Tensor: Predicted class indices of shape [batch, bars, time]
         """
-        bin_logits, rhythm_logits = self.forward(x, injected_mask, use_teacher_forcing=False)
+        bin_logits, rhythm_logits = self.forward(x, injected_mask, use_teacher_forcing=False, disable_structural_injection=)
         return torch.argmax(bin_logits, dim=-1), torch.argmax(rhythm_logits, dim=-1) 
 
 class TranscriptionMetrics:
@@ -616,7 +616,8 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
                  project_name: str = "solo-transcriber",
                  experiment_name: str = "default",
                  rhythm_loss_weight: float = 1.0,
-                 label_smoothing: float = 0.05
+                 label_smoothing: float = 0.05,
+                 disable_structural_injection: bool = False
     ):
         """
         Args:
@@ -630,7 +631,8 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         """
         super().__init__()
         self.save_hyperparameters()
-        
+
+        self.disable_structural_injection = disable_structural_injection
         # Create model
         self.model = RhythmPerceiver(
             embedding_dim=embedding_dim,
@@ -709,8 +711,8 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         final[indices] = bin_predictions[indices]
         return final
 
-    def forward(self, x: Dict[str, torch.Tensor], injected_mask: torch.Tensor = None, use_teacher_forcing: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.model(x, injected_mask, use_teacher_forcing)
+    def forward(self, x: Dict[str, torch.Tensor], injected_mask: torch.Tensor = None, use_teacher_forcing: bool = False, disable_structural_injection: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.model(x, injected_mask, use_teacher_forcing, disable_structural_injection)
     
     def generic_step(self, batch: Dict[str, Dict[str, torch.Tensor]], batch_idx: int, mode: str) -> torch.Tensor:
         # Extract data from new backend dataset structure
@@ -731,7 +733,7 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         
         # Get targets from bin_level data
         injected_mask = bin_level['mask']
-        bin_logits, rhythm_logits = self(x, injected_mask, use_teacher_forcing=True)
+        bin_logits, rhythm_logits = self(x, injected_mask, use_teacher_forcing=True, disable_structural_injection=self.disable_structural_injection)
          
         # Reshape for loss computation
         batch_size, num_bars, seq_len, num_classes = bin_logits.shape
@@ -787,7 +789,7 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         }
         
         # Get predictions
-        bin_logits, rhythm_logits = self(x, injected_mask = None, use_teacher_forcing=False)
+        bin_logits, rhythm_logits = self(x, injected_mask = None, use_teacher_forcing=False, disable_structural_injection=self.disable_structural_injection)
          
         # Reshape for loss computation
         batch_size, num_bars, seq_len, num_classes = bin_logits.shape
@@ -880,7 +882,7 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         }
         
         injected_mask = None  # Use predicted rhythm during inference
-        bin_logits, rhythm_logits = self(x, injected_mask, use_teacher_forcing=False)
+        bin_logits, rhythm_logits = self(x, injected_mask, use_teacher_forcing=False, disable_structural_injection=self.disable_structural_injection)
         return torch.argmax(bin_logits, dim=-1), torch.argmax(rhythm_logits, dim=-1)
     
     @staticmethod
