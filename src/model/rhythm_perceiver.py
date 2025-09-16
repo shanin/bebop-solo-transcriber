@@ -821,9 +821,10 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
             for token in bin_predictions:
                 if token < 128:
                     last_onset = token
+                    structured_predictions.append(token)
                 elif token == 128:
                     structured_predictions.append(last_onset)
-                elif token == 129:
+                elif token >= 129:
                     structured_predictions.append(129)
                     last_onset = 129
             structured_predictions = torch.tensor(structured_predictions, device=bin_predictions.device)
