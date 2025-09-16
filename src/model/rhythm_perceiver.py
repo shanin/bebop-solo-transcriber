@@ -495,7 +495,7 @@ class RhythmPerceiver(nn.Module):
         
         return bin_logits, rhythm_logits
     
-    def predict(self, x: dict, injected_mask: torch.Tensor = None, disable_structural_injection: bool = False) -> torch.Tensor:
+    def predict(self, x: dict, injected_mask: torch.Tensor = None, disable_structural_injection: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
             x: Same as forward()
@@ -504,7 +504,7 @@ class RhythmPerceiver(nn.Module):
         Returns:
             torch.Tensor: Predicted class indices of shape [batch, bars, time]
         """
-        bin_logits, rhythm_logits = self.forward(x, injected_mask, use_teacher_forcing=False, disable_structural_injection=)
+        bin_logits, rhythm_logits = self.forward(x, injected_mask, use_teacher_forcing=False, disable_structural_injection=disable_structural_injection)
         return torch.argmax(bin_logits, dim=-1), torch.argmax(rhythm_logits, dim=-1) 
 
 class TranscriptionMetrics:
