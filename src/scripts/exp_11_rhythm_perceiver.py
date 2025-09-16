@@ -13,14 +13,33 @@ def main(args):
     # Set tensor core optimization for A100 GPU
     torch.set_float32_matmul_precision('medium')
     
-    train_dataset = FilosaxBackendDataset(bars_dir=args.bars_dir, crnn_dir=args.crnn_dir, posenc_dir=args.posenc_dir, split='train')
+    train_dataset = FilosaxBackendDataset(bars_dir=args.bars_dir, crnn_dir=args.crnn_dir, posenc_dir=args.posenc_dir, split='train', source='original')
+    train_dataset_dt = FilosaxBackendDataset(bars_dir=args.bars_dir, crnn_dir=args.crnn_dir, posenc_dir=args.posenc_dir, split='train', source='double_time')
+    train_dataset_dts = FilosaxBackendDataset(bars_dir=args.bars_dir, crnn_dir=args.crnn_dir, posenc_dir=args.posenc_dir, split='train', source='double_time_shifted')
     train_segments = BackendSegmentDataset(train_dataset, num_consecutive_bars = args.num_consecutive_bars)
+    train_segments_dt = BackendSegmentDataset(train_dataset_dt, num_consecutive_bars = args.num_consecutive_bars)
+    train_segments_dts = BackendSegmentDataset(train_dataset_dts, num_consecutive_bars = args.num_consecutive_bars)
     val_dataset = FilosaxBackendDataset(bars_dir=args.bars_dir, crnn_dir=args.crnn_dir, posenc_dir=args.posenc_dir, split='val')
     val_segments = BackendSegmentDataset(val_dataset, num_consecutive_bars = args.num_consecutive_bars)
     test_dataset = FilosaxBackendDataset(bars_dir=args.bars_dir, crnn_dir=args.crnn_dir, posenc_dir=args.posenc_dir, split='test')
     test_segments = BackendSegmentDataset(test_dataset, num_consecutive_bars = args.num_consecutive_bars)
 
-    train_loader = DataLoader(train_segments, batch_size=args.batch_size, shuffle=True, num_workers=0, collate_fn=backend_segment_collate_fn)
+    if not args.double_time_augmentation:
+        train_loader = DataLoader(train_segments, batch_size=args.batch_size, shuffle=True, num_workers=0, collate_fn=backend_segment_collate_fn)
+    else:
+        weights = [1.0] * len(train_segments) + [.5] * len(train_segments_dt) + [.5] * len(train_segments_dts)
+        sampler = WeightedRandomSampler(
+            weights=torch.DoubleTensor(weights),
+            num_samples=len(weights), 
+            replacement=True
+        )
+        train_loader = DataLoader(
+            ConcatDataset([train_segments, train_segments_dt, train_segments_dts]), 
+            batch_size=args.batch_size,  
+            num_workers=0, 
+            collate_fn=backend_segment_collate_fn, 
+            sampler=sampler
+        )
     val_loader = DataLoader(val_segments, batch_size=args.batch_size, shuffle=False, num_workers=0, collate_fn=backend_segment_collate_fn)
     test_loader = DataLoader(test_segments, batch_size=args.batch_size, shuffle=False, num_workers=0, collate_fn=backend_segment_collate_fn)
 
@@ -111,6 +130,7 @@ if __name__ == "__main__":
     parser.add_argument("--early_stopping_patience", type=int, default=5, help="Early stopping patience")
     parser.add_argument("--label_smoothing", type=float, default=0.05, help="Label smoothing factor")
     parser.add_argument("--gradient_clip_val", type=float, default=1.0, help="Gradient clipping value")
+    parser.add_argument("--double_time_augmentation", action='store_true', default=False)
     
     args = parser.parse_args()
     
