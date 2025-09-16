@@ -815,7 +815,7 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         # Generate structured predictions
         if self.disable_rhythm_classifier:
             bin_predictions = torch.argmax(bin_logits, dim=-1)  # Convert logits to tokens first
-            structured_predictions = self._tokens_to_pianoroll(bin_predictions.view(-1))  # Flatten to match expected format
+            structured_predictions = self._tokens_to_pianoroll(bin_predictions)  # Flatten to match expected format
         else:
             structured_predictions = self._generate_structured_predictions(bin_logits, rhythm_logits)
 
