@@ -808,6 +808,7 @@ class RhythmPerceiverLightningModule(pl.LightningModule, TranscriptionMetrics):
         bin_logits = bin_logits.view(-1, num_classes)  # [batch*bars*time, num_classes]
         rhythm_logits = rhythm_logits.view(-1, num_rhythm_classes)  # [batch*bars*time, num_classes]
         targets = bin_level['tokens'].view(-1)  # [batch*bars*bins]
+        assert targets.shape == bin_logits.shape[0], f"targets has wrong shape: {targets.shape} vs {bin_logits.shape[0]}"
         rhythm_targets = bin_level['rhythm_tokens'].view(-1)  # [batch*bars*beats]
         mask = bin_level['mask'].view(-1) # [batch*bars*bins]
         
