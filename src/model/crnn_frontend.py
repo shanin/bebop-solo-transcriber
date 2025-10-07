@@ -75,8 +75,9 @@ class ConvBlock(nn.Module):
                               kernel_size=(3, 3), stride=(1, 1),
                               padding=(1, 1), bias=False)
                               
-        self.bn1 = nn.BatchNorm2d(out_channels, momentum)
-        self.bn2 = nn.BatchNorm2d(out_channels, momentum)
+        # Use named argument for momentum; positional second arg would set eps instead
+        self.bn1 = nn.BatchNorm2d(out_channels, momentum=momentum)
+        self.bn2 = nn.BatchNorm2d(out_channels, momentum=momentum)
 
         self.init_weight()
         
@@ -165,15 +166,18 @@ class Regress_onset_offset_frame_velocity_CRNN(nn.Module):
         midfeat = 1792
         momentum = 0.01
         self.var = var
-        self.bn0 = nn.BatchNorm2d(mel_bins, momentum)
+        # Use named argument for momentum; positional second arg would set eps instead
+        self.bn0 = nn.BatchNorm2d(mel_bins, momentum=momentum)
 
         self.frame_model = AcousticModelCRnn8Dropout(classes_num, midfeat, momentum)
         self.reg_onset_model = AcousticModelCRnn8Dropout(classes_num, midfeat, momentum)
         self.reg_offset_model = AcousticModelCRnn8Dropout(classes_num, midfeat, momentum)
         self.velocity_model = AcousticModelCRnn8Dropout(classes_num, midfeat, momentum)
 
+        # Match reference: GRU processes concatenated per-time per-pitch features (2*C)
         self.reg_onset_gru = nn.GRU(input_size=88 * 2, hidden_size=256, num_layers=1, 
             bias=True, batch_first=True, dropout=0., bidirectional=True)
+        # Project to per-pitch logits (C)
         self.reg_onset_fc = nn.Linear(512, classes_num, bias=True)
 
         self.frame_gru = nn.GRU(input_size=88 * 3, hidden_size=256, num_layers=1, 
@@ -192,7 +196,7 @@ class Regress_onset_offset_frame_velocity_CRNN(nn.Module):
     def forward(self, x):
         """
         Args:
-          x: (batch_size, time_steps, mel_bins = 229)
+          x: (batch_size, time_steps, mel_bins = 229) or (batch_size, 1, time_steps, mel_bins)
 
         Outputs:
           output_dict: dict, {
@@ -203,7 +207,13 @@ class Regress_onset_offset_frame_velocity_CRNN(nn.Module):
           }
         """
 
-        x = x.unsqueeze(1)
+        # Accept either 3D (B, T, M) or 4D (B, 1, T, M) input; convert to (B, 1, T, M)
+        if x.dim() == 3:
+            x = x.unsqueeze(1)
+        elif x.dim() == 4 and x.size(1) == 1:
+            pass
+        else:
+            raise ValueError("Expected input of shape (B, T, M) or (B, 1, T, M)")
 
         x = x.transpose(1, 3)
         x = self.bn0(x)
@@ -215,29 +225,23 @@ class Regress_onset_offset_frame_velocity_CRNN(nn.Module):
         velocity_output = self.velocity_model(x)    # (batch_size, time_steps, classes_num)
  
 
+        # Build time-wise features by concatenating onset and velocity-derived term across pitches (shape: B, T, 2*C)
+        # Note: var=3 detaches onset; the original reference uses the var=1 path (no detach) which can provide
+        # stronger per-pitch training signals through the GRU.
         if self.var == 1:
             x = torch.cat((reg_onset_output, (reg_onset_output ** 0.5) * velocity_output.detach()), dim=2)
-            (x, _) = self.reg_onset_gru(x)
-            x = F.dropout(x, p=0.5, training=self.training, inplace=False)
-            reg_onset_output = torch.sigmoid(self.reg_onset_fc(x))
-
         elif self.var == 2:
             x = torch.cat((reg_onset_output, velocity_output.detach()), dim=2)
-            (x, _) = self.reg_onset_gru(x)
-            x = F.dropout(x, p=0.5, training=self.training, inplace=False)
-            reg_onset_output = torch.sigmoid(self.reg_onset_fc(x))
-        
         elif self.var == 3:
             x = torch.cat((reg_onset_output, (reg_onset_output.detach() ** 0.5) * velocity_output.detach()), dim=2)
-            (x, _) = self.reg_onset_gru(x)
-            x = F.dropout(x, p=0.5, training=self.training, inplace=False)
-            reg_onset_output = torch.sigmoid(self.reg_onset_fc(x))
-        
         elif self.var == 4:
             x = torch.cat((reg_onset_output, (reg_onset_output.detach() ** 0.5) * (100/128)), dim=2)
-            (x, _) = self.reg_onset_gru(x)
-            x = F.dropout(x, p=0.5, training=self.training, inplace=False)
-            reg_onset_output = torch.sigmoid(self.reg_onset_fc(x))
+        else:
+            x = torch.cat((reg_onset_output, (reg_onset_output ** 0.5) * velocity_output.detach()), dim=2)
+
+        (x, _) = self.reg_onset_gru(x)
+        x = F.dropout(x, p=0.5, training=self.training, inplace=False)
+        reg_onset_output = torch.sigmoid(self.reg_onset_fc(x))
 
         """(batch_size, time_steps, classes_num)"""
 
@@ -274,7 +278,7 @@ class MusicTranscriptionLightning(pl.LightningModule):
         velocity_loss_weight=1.0,
         scheduler_patience=5,
         scheduler_factor=0.5,
-        var=3
+        var=1
     ):
         super().__init__()
         
@@ -481,7 +485,8 @@ class MusicTranscriptionLightning(pl.LightningModule):
         """Training step."""
         
         # Unpack batch
-        mel_spec = batch['x']['mel_spec']    # (batch, 1, time, mel_bins)
+        mel_spec = batch['x']['mel_spec']    # Expected: (batch, time, mel_bins). If provided as (batch, 1, time, mel_bins),
+                                             # ensure upstream datamodule squeezes channel dim or adapt forward accordingly.
         targets = {
             'onset': batch['y']['onset'],    # (batch, time, 88)
             'offset': batch['y']['offset'],  # (batch, time, 88)
